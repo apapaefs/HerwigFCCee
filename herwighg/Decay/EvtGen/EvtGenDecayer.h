@@ -30,7 +30,7 @@ public:
   /**
    * Standard constructors
    */
-  EvtGenDecayer() : check_(0) , evtOpt_(0)
+  EvtGenDecayer() : check_(0) , evtOpt_(0), lifetimeModel_(0), respectStable_(false)
   {}
 
 public:
@@ -52,6 +52,8 @@ public:
    * @return a ParticleVector containing the decay products.
    */
   virtual ParticleVector decay(const DecayMode & dm, const Particle & p) const;
+  bool generatesLifeTime() const override { return lifetimeModel_==1; }
+  DecayHistory decayHistory(const DecayMode &, const Particle &) const override;
   //@}
 
 public:
@@ -137,6 +139,9 @@ private:
    *  Option for how EvtGen is used
    */
   unsigned int evtOpt_;
+  unsigned int lifetimeModel_;
+  bool respectStable_;
+  DecayHistory generate(const DecayMode &, const Particle &, bool) const;
 
 };
 

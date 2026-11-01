@@ -25,6 +25,13 @@
 
 using namespace ThePEG;
 
+Decayer::DecayHistory Decayer::decayHistory(const DecayMode & dm, const Particle & p) const {
+  DecayHistory result;
+  result.children=decay(dm,p);
+  result.parentCTau=p.lifeLength().tau();
+  return result;
+}
+
 double Decayer::brat(const DecayMode &,
 		     const ParticleData &, double b) const {
   return b;

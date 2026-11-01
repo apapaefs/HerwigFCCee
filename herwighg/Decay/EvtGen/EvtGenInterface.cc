@@ -30,6 +30,7 @@
 #include "EvtGenBase/EvtStringParticle.hh"
 #include "EvtGenBase/EvtHighSpinParticle.hh"
 #include "EvtGenBase/EvtDecayTable.hh"
+#include "EvtGenBase/EvtStatus.hh"
 
 #ifndef EVTGEN_SHARE
 #error Makefile.am needs to define EVTGEN_SHARE
@@ -205,7 +206,8 @@ void EvtGenInterface::dofinish() {
 }
 
 ParticleVector EvtGenInterface::decay(const Particle &parent,
-				      bool recursive, const DecayMode & dm) const {
+				      bool recursive, const DecayMode & dm, bool importLifeTimes,
+                                      Length *parentCTau, bool respectStable) const {
   // redirect cout to the log file
   ostringstream stemp;
   std::streambuf *temp[2]={cout.rdbuf(),cerr.rdbuf()};
@@ -217,19 +219,60 @@ ParticleVector EvtGenInterface::decay(const Particle &parent,
   // generate the decay
   ParticleVector output;
   EvtId parID(EvtGenID(parent.id()));
+  EvtParticle *particle=nullptr, *evtParent=nullptr;
   try {
+    // Reject the event independently of output redirection. Rebuilding a
+    // rejected tree can change its channel, mixing outcome and lifetime.
+    // The legacy complete-tree entry point remains EvtGen::generateDecay.
+    if(importLifeTimes) EvtStatus::initRejectFlag();
+    auto checkRejection = [&]() {
+      if(importLifeTimes && EvtStatus::getRejectFlag())
+        throw Exception() << "EvtGen rejected the decay of " << parent.PDGName()
+                          << "; discarding event without retry.\n" << stemp.str()
+                          << Exception::eventerror;
+    };
     EvtDecayBase *decayer = NULL;
     // create evtgen particle for the parent
-    EvtParticle* particle = EvtGenParticle(parent);
-    EvtParticle* evtParent = NULL;
+    particle = EvtGenParticle(parent,importLifeTimes && parent.externalLifeTime());
+    EvtParticle* decayingParticle=particle;
     // special if parent is the same to avoid doing mixing twice
-    if(parent.parents().size()==1 && abs(parent.parents()[0]->id())==abs(parent.id())) {
-      evtParent = EvtGenParticle(*parent.parents()[0]);
+    if((!importLifeTimes || parent.externalLifeTime()) && parent.parents().size()==1 &&
+       abs(parent.parents()[0]->id())==abs(parent.id())) {
+      // This ancestor only suppresses repeated mixing at a handoff. In the
+      // external model its existing lifetime must not trigger another draw.
+      evtParent = EvtGenParticle(*parent.parents()[0],importLifeTimes);
       particle->addDaug(evtParent);
     }
-    // simplest case, evtgen selects mode and recursively decays, use their standard mechanism
+    // A flavour transition carries exactly the incoming momentum. EvtGen's
+    // incoherent-mixing code initializes its daughter with the PDL mass,
+    // which need not equal the mass supplied by Herwig. Correct it before
+    // the daughter's decay, without changing its lifetime or drawing RNGs.
+    auto alignFlavourTransition = [&]() {
+      if(importLifeTimes && particle->getNDaug()==1 &&
+         (abs(parent.id())==511 || abs(parent.id())==531) &&
+         abs(ThePEGID(particle->getDaug(0)->getId()))==abs(parent.id()))
+        particle->getDaug(0)->setP4(EvtVector4R(particle->mass(),0.,0.,0.));
+    };
+    // With external lifetime ownership, prepare the root mass tree before
+    // EvtParticle::decay so a possible flavour transition can be aligned.
+    // This ordering follows EvtGen 2.2.0 and must be checked on upgrades.
+    // LegacyHerwig continues to use EvtGen's original entry point unchanged.
     if(dm.wildProductMatcher() && recursive) {
-      evtgen_->generateDecay(particle);
+      if(!importLifeTimes) evtgen_->generateDecay(particle);
+      else {
+          // EvtParticle::decay selects a root channel before initDecay can
+          // insert a mixing daughter. Keep that ordering: the root channel
+          // would otherwise be unset when decay() consults it again.
+          EvtDecayTable::getInstance()->getDecayFunc(particle);
+          checkRejection();
+          if(particle->getNDaug()==0 && !particle->generateMassTree())
+            throw Exception() << "EvtGen could not generate the mass tree for "
+                              << parent.PDGName() << Exception::eventerror;
+          checkRejection();
+          alignFlavourTransition();
+          particle->decay();
+          checkRejection();
+      }
     }
     // otherwise we're in control
     else {
@@ -244,6 +287,7 @@ ParticleVector EvtGenInterface::decay(const Particle &parent,
   	particle->setChannel(imode);
       }
       // must be a decayer
+      checkRejection();
       if(!decayer) throw Exception() << "Could find EvtGen decayer in EvtGen::decay()" 
   				     << Exception::runerror;
       // masses of the children
@@ -251,26 +295,37 @@ ParticleVector EvtGenInterface::decay(const Particle &parent,
       if ( particle->getNDaug() == 0 ) 
   	massTreeOK = particle->generateMassTree();
       if ( ! massTreeOK ) {
-  	// delete the EvtGen particle
-  	particle->deleteDaughters();
-  	delete particle;
-  	particle = 0;
-	if(evtParent) {
-	  delete evtParent;
-	}
   	throw Exception() << "EvtGen could not decay " << parent.PDGName()
   			  << " with mass " << parent.mass()/GeV 
   			  << " and decay mode " << dm.tag() << "\n"
   			  << Exception::eventerror;
       }
+      checkRejection();
       assert(decayer !=0 );
-      // perform decay
-      decayer->makeDecay(particle,recursive);
+      // EvtGen's own EvtParticle::decay uses the zero-flight flavour daughter
+      // after an incoherent B mixing transition, including in Parent mode.
+      if(importLifeTimes && particle->getNDaug()==1 &&
+         (abs(parent.id())==511 || abs(parent.id())==531) &&
+         abs(ThePEGID(particle->getDaug(0)->getId()))==abs(parent.id())) {
+        decayingParticle=particle->getDaug(0);
+        if(!dm.wildProductMatcher())
+          throw Exception() << "EvtGen lifetime ownership for a mixed root requires a wildcard decay mode."
+                            << Exception::runerror;
+        decayer=EvtDecayTable::getInstance()->getDecayFunc(decayingParticle);
+      }
+      checkRejection();
+      if(!decayer)
+        throw Exception() << "No EvtGen decayer for the post-mixing flavour of "
+                          << parent.PDGName() << Exception::eventerror;
+      alignFlavourTransition();
+      decayer->makeDecay(decayingParticle,recursive);
+      checkRejection();
     }
     // cast the decayer
-    EvtDecayAmp *damp  = dynamic_cast<EvtDecayAmp*>(decayer);
+    EvtDecayAmp *damp  = decayingParticle==particle ? dynamic_cast<EvtDecayAmp*>(decayer) : nullptr;
     // translate the decay products
-    output=decayProducts(particle);
+    output=decayProducts(particle,true,importLifeTimes,respectStable);
+    if(parentCTau) *parentCTau=particle->getLifetime()*mm;
     // set spin information if needed
     tSpinPtr pspin(getSpinInfo(parent));
     // if has spin information translate it
@@ -301,6 +356,8 @@ ParticleVector EvtGenInterface::decay(const Particle &parent,
     particle = 0;
   }
   catch ( ... ) {
+    if(particle) { particle->deleteDaughters(); delete particle; }
+    if(evtParent) delete evtParent;
     // change stream back
     if(reDirect_ && ! generator()->useStdOut() ) {
       cout.rdbuf(temp[0]);
@@ -323,7 +380,7 @@ ParticleVector EvtGenInterface::decay(const Particle &parent,
   return output;
 }
 
-EvtParticle * EvtGenInterface::EvtGenParticle(const Particle & part) const {
+EvtParticle * EvtGenInterface::EvtGenParticle(const Particle & part, bool preserveLifeTime) const {
   // convert the momentum
   Lorentz5Momentum inmom(part.momentum());
   EvtVector4R p4(EvtGenMomentum(inmom));
@@ -355,6 +412,7 @@ EvtParticle * EvtGenInterface::EvtGenParticle(const Particle & part) const {
   else if ( thisSpin == EvtSpinType::SCALAR ) {
     // create particle
     EvtScalarParticle * myPart = new EvtScalarParticle;
+    if(preserveLifeTime) {myPart->noLifeTime();myPart->setLifetime(part.lifeLength().tau()/mm);}
     myPart->init(id, p4);
     // set rho matrix if needed
     tcScalarSpinPtr sp(dynamic_ptr_cast<tcScalarSpinPtr>(spin));
@@ -370,6 +428,7 @@ EvtParticle * EvtGenInterface::EvtGenParticle(const Particle & part) const {
   }
   else if ( thisSpin == EvtSpinType::DIRAC ) {
     EvtDiracParticle *myPart =new EvtDiracParticle;
+    if(preserveLifeTime) {myPart->noLifeTime();myPart->setLifetime(part.lifeLength().tau()/mm);}
     // get the spin info
     tcFermionSpinPtr sp(dynamic_ptr_cast<tcFermionSpinPtr>(spin));
     // has spin info transfer
@@ -396,6 +455,7 @@ EvtParticle * EvtGenInterface::EvtGenParticle(const Particle & part) const {
   // vector particles
   else if ( thisSpin == EvtSpinType::VECTOR ) {
     EvtVectorParticle *myPart=new EvtVectorParticle;
+    if(preserveLifeTime) {myPart->noLifeTime();myPart->setLifetime(part.lifeLength().tau()/mm);}
     // get the spin info
     tcVectorSpinPtr sp(dynamic_ptr_cast<tcVectorSpinPtr>(spin));
     // has spin info transfer
@@ -421,6 +481,7 @@ EvtParticle * EvtGenInterface::EvtGenParticle(const Particle & part) const {
   // spin 3/2 particles
   else if ( thisSpin == EvtSpinType::RARITASCHWINGER ) {
     EvtRaritaSchwingerParticle *myPart=new EvtRaritaSchwingerParticle;
+    if(preserveLifeTime) {myPart->noLifeTime();myPart->setLifetime(part.lifeLength().tau()/mm);}
     // get the spin info
     tcRSFermionSpinPtr sp(dynamic_ptr_cast<tcRSFermionSpinPtr>(spin));
     // has spin info transfer
@@ -449,6 +510,7 @@ EvtParticle * EvtGenInterface::EvtGenParticle(const Particle & part) const {
   // spin-2 particles
   else if ( thisSpin == EvtSpinType::TENSOR ) {
     EvtTensorParticle *myPart =new EvtTensorParticle;
+    if(preserveLifeTime) {myPart->noLifeTime();myPart->setLifetime(part.lifeLength().tau()/mm);}
     tcTensorSpinPtr sp(dynamic_ptr_cast<tcTensorSpinPtr>(spin));
     // has spin info transfer
     if(sp) {
@@ -474,6 +536,7 @@ EvtParticle * EvtGenInterface::EvtGenParticle(const Particle & part) const {
   else if ( thisSpin == EvtSpinType::STRING ) {
     EvtStringParticle *myPart;
     myPart=new EvtStringParticle;
+    if(preserveLifeTime) {myPart->noLifeTime();myPart->setLifetime(part.lifeLength().tau()/mm);}
     myPart->init(id, p4);
     EvtSpinDensity rho;
     rho.setDiag(EvtSpinType::getSpinStates(thisSpin));
@@ -485,6 +548,7 @@ EvtParticle * EvtGenInterface::EvtGenParticle(const Particle & part) const {
    	    thisSpin == EvtSpinType::SPIN4 || thisSpin == EvtSpinType::SPIN7HALF) {
     EvtHighSpinParticle *myPart;
     myPart=new EvtHighSpinParticle;
+    if(preserveLifeTime) {myPart->noLifeTime();myPart->setLifetime(part.lifeLength().tau()/mm);}
     myPart->init(id, p4);
     EvtSpinDensity rho;
     rho.setDiag(EvtSpinType::getSpinStates(thisSpin));
@@ -574,7 +638,8 @@ EvtId EvtGenInterface::EvtGenID(int id, bool exception) const {
   return output;
 }
 
-ParticleVector EvtGenInterface::decayProducts(EvtParticle *part, bool boost) const {
+ParticleVector EvtGenInterface::decayProducts(EvtParticle *part, bool boost,
+                                               bool importLifeTimes, bool respectStable) const {
   ParticleVector output,temp;
   for(unsigned int ix=0,N=part->getNDaug();ix<N;++ix) {
     // get the daughter particle
@@ -585,13 +650,13 @@ ParticleVector EvtGenInterface::decayProducts(EvtParticle *part, bool boost) con
     int id=ThePEGID(daug->getId());
     tcPDPtr pd=getParticleData(id);
     // if easy to convert do it
-    if(pd) output.push_back(ThePEGParticle(daug,pd));
+    if(pd) output.push_back(ThePEGParticle(daug,pd,true,importLifeTimes,respectStable));
     // special for EvtGen particles like string we don't need to include
     else if(id==90) {
       // check if needs to be decayed by EvtGen
       if(EvtPDL::getStdHep(daug->getId())==92||daug->isDecayed()) {
    	// add the particles
-	ParticleVector temp(decayProducts(daug,EvtPDL::getStdHep(daug->getId())!=92));
+	ParticleVector temp(decayProducts(daug,EvtPDL::getStdHep(daug->getId())!=92,importLifeTimes,respectStable));
    	if(EvtPDL::getStdHep(daug->getId())==92) {
    	  Lorentz5Momentum pstring(ThePEGMomentum(daug->getP4(),daug->mass()));
    	  Boost bv(-pstring.x()/pstring.e(),-pstring.y()/pstring.e(),-pstring.z()/pstring.e());
@@ -613,7 +678,7 @@ ParticleVector EvtGenInterface::decayProducts(EvtParticle *part, bool boost) con
   	// perform decay
   	decayer->makeDecay(daug,false);
   	// add the particles
-  	ParticleVector temp(decayProducts(daug));
+  	ParticleVector temp(decayProducts(daug,true,importLifeTimes,respectStable));
   	for(unsigned int iy=0;iy<temp.size();++iy) output.push_back(temp[iy]);
       }
     }

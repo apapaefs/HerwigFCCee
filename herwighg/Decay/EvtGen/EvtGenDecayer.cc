@@ -24,13 +24,29 @@ bool EvtGenDecayer::accept(const DecayMode &) const {
 
 ParticleVector EvtGenDecayer::decay(const DecayMode & dm,
 				    const Particle & parent) const {
+  if(generatesLifeTime())
+    throw Exception() << "EvtGen LifetimeModel requires a decay-history-aware handler "
+                      << "such as Herwig::HwDecayHandler."
+                      << Exception::runerror;
+  return generate(dm,parent,false).children;
+}
+
+Decayer::DecayHistory EvtGenDecayer::decayHistory(const DecayMode &dm,
+                                                const Particle &parent) const {
+  return generate(dm,parent,generatesLifeTime());
+}
+
+Decayer::DecayHistory EvtGenDecayer::generate(const DecayMode &dm,
+                                             const Particle &parent, bool own) const {
+  DecayHistory history;
+  history.ownsMixing=own;
   unsigned int ntry=0;
   ParticleVector output;
   do {
     if(evtOpt_==0)
-      output=evtgen_->decay(parent,false,dm);
+      output=evtgen_->decay(parent,false,dm,own,&history.parentCTau,respectStable_);
     else if(evtOpt_==1)
-      output=evtgen_->decay(parent, true,dm);
+      output=evtgen_->decay(parent, true,dm,own,&history.parentCTau,respectStable_);
     else
       throw Exception() << "Unknown option in EvtGenDecayer::decay() " 
 			<< Exception::runerror;
@@ -68,7 +84,8 @@ ParticleVector EvtGenDecayer::decay(const DecayMode & dm,
 			 << generator()->currentEventNumber() << "\n";
     }
   }
-  return output;
+  history.children=output;
+  return history;
 }
 
 
@@ -81,20 +98,32 @@ IBPtr EvtGenDecayer::fullclone() const {
 }
 
 void EvtGenDecayer::persistentOutput(PersistentOStream & os) const {
-  os << evtgen_ << check_ << evtOpt_;
+  os << evtgen_ << check_ << evtOpt_ << lifetimeModel_ << respectStable_;
 }
 
-void EvtGenDecayer::persistentInput(PersistentIStream & is, int) {
-  is >> evtgen_ >> check_ >> evtOpt_;  
+void EvtGenDecayer::persistentInput(PersistentIStream & is, int version) {
+  is >> evtgen_ >> check_ >> evtOpt_;
+  if(version>=1) is >> lifetimeModel_ >> respectStable_;  
 }
 
 // The following static variable is needed for the type
 // description system in ThePEG.
 DescribeClass<EvtGenDecayer,Decayer>
 describeHerwigEvtGenDecayer("Herwig::EvtGenDecayer",
-			    "HwEvtGenInterface.so");
+			    "HwEvtGenInterface.so",1);
 
 void EvtGenDecayer::Init() {
+  static Switch<EvtGenDecayer,unsigned int> lifetime
+    ("LifetimeModel","Who supplies proper lifetimes and neutral-meson mixing.",
+     &EvtGenDecayer::lifetimeModel_,0,false,false);
+  static SwitchOption legacy(lifetime,"LegacyHerwig","Use the existing Herwig lifetime and mixing prescription.",0);
+  static SwitchOption external(lifetime,"EvtGen","Import EvtGen lifetimes and mixing, independently of geometry restrictions.",1);
+  static Switch<EvtGenDecayer,bool> stable
+    ("RespectStable","Stop returned EvtGen trees at species marked Stable in Herwig. Independent of the cylinder.",
+     &EvtGenDecayer::respectStable_,false,false,false);
+  static SwitchOption stableYes(stable,"Yes","Apply the configured Herwig species eligibility table.",true);
+  static SwitchOption stableNo(stable,"No","Use EvtGen species eligibility.",false);
+
 
   static ClassDocumentation<EvtGenDecayer> documentation
     ("The EvtGenDecayer class allows the EvtGen decay package to be used as"

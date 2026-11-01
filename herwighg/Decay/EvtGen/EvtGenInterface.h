@@ -60,7 +60,8 @@ public:
    * @return The decay products
    */
   ParticleVector decay(const Particle &parent,
-		       bool recursive, const DecayMode & dm) const;
+		       bool recursive, const DecayMode & dm, bool importLifeTimes=false,
+                       Length *parentCTau=nullptr, bool respectStable=false) const;
 
 public:
 
@@ -96,13 +97,14 @@ protected:
    * Convert a particle to an EvtGen particle.
    * @param part The particle to be converted.
    */
-  EvtParticle *EvtGenParticle(const Particle & part) const;
+  EvtParticle *EvtGenParticle(const Particle & part, bool preserveLifeTime=false) const;
 
   /**
    *  Return the decay products of an EvtGen particle in as ThePEG particles
    * @param evtpart The EvtGen particle
    */
-  ParticleVector decayProducts(EvtParticle* evtpart, bool boost=true) const;
+  ParticleVector decayProducts(EvtParticle* evtpart, bool boost=true,
+                               bool importLifeTimes=false, bool respectStable=false) const;
 
   /**
    * Convert a Lorentz5Momentum to a real EvtGen 4-vector
@@ -211,12 +213,21 @@ protected:
    * @param pd Pointer to the particle data object of ThePEG for the particle.
    * @param spin Convert the spin information as well
    */
-  PPtr ThePEGParticle(EvtParticle *part, tcPDPtr pd,bool spin=true) const {
+  PPtr ThePEGParticle(EvtParticle *part, tcPDPtr pd,bool spin=true,
+                     bool importLifeTimes=false, bool respectStable=false) const {
     PPtr output(new_ptr(Particle(pd)));
     output->set5Momentum(ThePEGMomentum(part->getP4(),part->mass()));
+    if(importLifeTimes) output->properLifeLength(part->getLifetime()*mm,true);
     if(spin) ThePEGSpin(output,part);
+    if(respectStable && pd->stable() && output->spinInfo()) {
+      output->spinInfo()->undecay();
+      output->spinInfo()->DMatrix()=RhoDMatrix(output->spinInfo()->iSpin());
+      output->spinInfo()->develop();
+    }
     // make the daughters 
-    ParticleVector daug(decayProducts(part,spin));
+    ParticleVector daug;
+    if(!respectStable || !pd->stable())
+      daug=decayProducts(part,spin,importLifeTimes,respectStable);
     for(unsigned int ix=0;ix<daug.size();++ix) output->addChild(daug[ix]);
     return output;
   }

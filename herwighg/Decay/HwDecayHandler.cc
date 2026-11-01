@@ -69,11 +69,21 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
   if(parent->decayDisposition()==Particle::OutsideCylinder ||
      parent->decayDisposition()==Particle::AboveMaxLifeTime) { develop(parent); return; }
   const Event * event=s.collision() ? s.collision()->event().operator->() : nullptr;
+  bool external=false,native=false;
+  for(const auto & mode : parent->data().decayModes())
+    if(mode->on() && mode->brat()>0 && mode->decayer()) {
+      if(mode->decayer()->generatesLifeTime()) external=true;
+      else native=true;
+    }
+  if(external && native)
+    throw Exception() << "Mixed native and external lifetime ownership for " << parent->PDGName()
+                      << ". Assign one lifetime owner to all enabled decay modes."
+                      << Exception::runerror;
   long ntry = 0;
   tcSpinPtr hwspin;
   tcMixedParticleDataPtr 
     mixdata=dynamic_ptr_cast<tcMixedParticleDataPtr>(parent->dataPtr());
-  if(mixdata) {
+  if(mixdata && !parent->externalLifeTime() && !external) {
     pair<bool,Length> mixing = mixdata->generateLifeTime();
     parent->setLifeLength(Lorentz5Distance(mixing.second,
                               parent->momentum().vect()*(mixing.second/parent->mass())));
@@ -102,7 +112,7 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
     s.addDecayProduct(parent, newparent);
     parent = newparent;
   }
-  else {
+  else if(!external) {
     parent->synchronizeLifeLength();
     if(!acceptsDecay(parent,event)) { develop(parent); return; }
   }
@@ -127,7 +137,20 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
 					    << " in HwDecayHandler::performDecay" 
 					    << Exception::eventerror;
     try {
-      ParticleVector children = dm->decayer()->decay(*dm,*parent);
+      ParticleVector children;
+      if(external) {
+        const auto history=dm->decayer()->decayHistory(*dm,*parent);
+        if(!history.ownsMixing)
+          throw Exception() << "An external lifetime decayer did not supply mixing ownership."
+                            << Exception::runerror;
+        children=history.children;
+        parent->properLifeLength(history.parentCTau,true);
+        if(!acceptsDecay(parent,event)) {
+          for(const auto & child : children) discardDecay(child);
+          discardDecay(parent);
+          return;
+        }
+      } else children=dm->decayer()->decay(*dm, *parent);
       if(children.empty()) continue;
       assert(parent->children().empty());
       // generate radiation in the decay

@@ -29,6 +29,16 @@ namespace ThePEG {
 class Decayer: public HandlerBase {
 
 public:
+  /** Optional explicit history for decayers owning lifetimes and mixing. */
+  struct DecayHistory {
+    ParticleVector children;
+    Length parentCTau = ZERO;
+    bool ownsMixing = false;
+  };
+  virtual bool generatesLifeTime() const { return false; }
+  virtual DecayHistory decayHistory(const DecayMode &, const Particle &) const;
+
+public:
 
   /** @name Virtual functions to be overridden in sub-classes. */
   //@{
