@@ -3,7 +3,7 @@ mySOURCES = EventHandler.cc SubProcessHandler.cc \
             CascadeHandler.cc MultipleInteractionHandler.cc DecayHandler.cc \
             EventManipulator.cc StepHandler.cc HadronizationHandler.cc \
             HandlerBase.cc \
-            FlavourGenerator.cc LuminosityFunction.cc \
+            FlavourGenerator.cc LuminosityFunction.cc GaussianBeamLuminosity.cc \
             StandardEventHandler.cc  \
             SamplerBase.cc  ClusterCollapser.cc \
             PtGenerator.cc ZGenerator.cc   \
@@ -13,7 +13,7 @@ DOCFILES = AnalysisHandler.h CascadeHandler.h \
            DecayHandler.h EventHandler.h EventManipulator.h \
            FlavourGenerator.h HadronizationHandler.h \
            HandlerBase.h HandlerGroup.h Hint.h \
-           LuminosityFunction.h \
+           LuminosityFunction.h GaussianBeamLuminosity.h \
            MultipleInteractionHandler.h StandardEventHandler.h \
            StepHandler.h SubProcessHandler.h XComb.h LastXCombInfo.h \
            SamplerBase.h  ClusterCollapser.h \

@@ -110,11 +110,9 @@ bool PairRapidityCut::passCuts(tcCutsPtr parent, tcPDPtr pitype, tcPDPtr pjtype,
 //     }
 //   }
 
-  double y = (pi+pj).rapidity() + parent->currentYHat();
-
-  // Actually, why not 
-  // double y = (pi+pj).rapidity() + parent->currentYHat() + parent->Y(); 
-  // as in ThePEG /Cuts/Cuts.cc, /Cuts/OneCutBase.cc, etc. ???
+  // Convert the pair rapidity to the laboratory frame before deriving pz
+  // for the pseudorapidity branch below.
+  double y = (pi+pj).rapidity() + parent->currentYHat() + parent->currentBeamY();
 
   for ( vector<pair<double,double> >::const_iterator dy = yRanges().begin();
 	dy != yRanges().end(); ++dy ) {
@@ -235,7 +233,7 @@ void PairRapidityCut::Init() {
 
   static Command<PairRapidityCut> interfaceYRange
     ("YRange",
-     "Insert a rapidity range.",
+     "Insert a rapidity or pseudorapidity range in the laboratory frame.",
      &PairRapidityCut::doYRange, false);
 
   static Switch<PairRapidityCut,bool> interfacePseudo

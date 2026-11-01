@@ -14,6 +14,7 @@ INCLUDEFILES = $(DOCFILES) Collision.tcc \
                Step.tcc SubProcess.tcc RemnantParticle.fh HelicityVertex.fh
 
 noinst_LTLIBRARIES = libThePEGEvent.la
+noinst_HEADERS = TransformSubProcesses.h
 libThePEGEvent_la_SOURCES = $(mySOURCES) $(INCLUDEFILES)
 
 include $(top_srcdir)/Config/Makefile.aminclude

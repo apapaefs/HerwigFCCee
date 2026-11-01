@@ -1,0 +1,103 @@
+# -*- ThePEG-repository -*-
+
+##################################################
+# LEP example with independent Gaussian beam spreads
+# Based on LEP.in; GaussianBeamLuminosity is built into ThePEG.
+#
+# Usage:
+#   Herwig read LEP-BeamSpread.in
+#   Herwig run LEP-BeamSpread.run -N 1000
+##################################################
+
+read snippets/EECollider.in
+
+##################################################
+# Select the hard process, as in LEP.in
+##################################################
+# Leading-order processes
+##################################################
+cd /Herwig/MatrixElements
+# Default e+e- > q qbar (5 flavours d,u,s,c,b)
+insert SubProcess:MatrixElements 0 MEee2gZ2qq
+# Replace the line above to select another process:
+# e+e- > l+l-
+# insert SubProcess:MatrixElements 0 MEee2gZ2ll
+# e+e- > W+W- ZZ
+# insert SubProcess:MatrixElements 0 MEee2VV
+# Higgs+Z
+# insert SubProcess:MatrixElements 0 MEee2ZH
+# Higgs+e+e-/nu_enu_ebar via VBF
+# insert SubProcess:MatrixElements 0 MEee2HiggsVBF
+##################################################
+# NLO POWHEG alternatives: replace the LO insertion
+##################################################
+# set /Herwig/Shower/ShowerHandler:HardEmission POWHEG
+# insert SubProcess:MatrixElements 0 PowhegMEee2gZ2qq
+# insert SubProcess:MatrixElements 0 PowhegMEee2gZ2ll
+
+##################################################
+# Gaussian beam energies before ISR
+# A is e- along +z; B is e+ along -z.
+# Mean energies: 45.6 GeV each (nominal sqrt(s)=91.2 GeV).
+# Relative spreads are sigma_E / mean_E: 0.00221 = 0.221%.
+# Each beam has sigma_E = 0.100776 GeV; the independent
+# Gaussians are normalized separately within +/-6 sigma.
+##################################################
+cd /Herwig/EventHandlers
+create ThePEG::GaussianBeamLuminosity BeamSpread
+set BeamSpread:MeanEnergyA 45.6*GeV
+set BeamSpread:MeanEnergyB 45.6*GeV
+set BeamSpread:RelativeSpreadA 0.00221
+set BeamSpread:RelativeSpreadB 0.00221
+set BeamSpread:NSigma 6
+set EventHandler:LuminosityFunction BeamSpread
+
+# To disable smearing, set both RelativeSpread values to 0.
+# To change the collision energy, change MeanEnergyA/B above.
+# The luminosity function derives the maximum beam energies automatically;
+# the FixedCMSLuminosity :Energy setting in LEP.in is replaced
+# by these two mean-energy settings.
+
+##################################################
+# Collinear QED ISR, using the LEP lepton structure functions
+# The Gaussian beam energies are sampled before ISR.
+# The shower, hadronization and decays use the LEP defaults.
+# EECollider.in disables shower ISR; these structure functions
+# supply the initial-state QED radiation.
+##################################################
+set /Herwig/Partons/EEExtractor:FirstPDF /Herwig/Partons/LeptonPDF
+set /Herwig/Partons/EEExtractor:SecondPDF /Herwig/Partons/LeptonPDF
+# To disable ISR, replace LeptonPDF with NoPDF on BOTH lines.
+
+##################################################
+# Optional Rivet analysis or HepMC3 output
+##################################################
+# read snippets/Rivet.in
+# insert /Herwig/Analysis/Rivet:Analyses 0 XXX_2015_ABC123
+# read snippets/HepMC.in
+# set /Herwig/Analysis/HepMC:PrintEvent 1000
+# set /Herwig/Analysis/HepMC:Format GenEventHepMC3
+# set /Herwig/Analysis/HepMC:Precision 16
+# set /Herwig/Analysis/HepMC:Filename LEP-BeamSpread.hepmc
+# Increase PrintEvent together with the event count when exporting.
+
+##################################################
+# Reproducible 1000-event example; override with run -N/-s
+##################################################
+set /Herwig/Random:Seed 20261027
+cd /Herwig/Generators
+set EventGenerator:NumberOfEvents 1000
+
+##################################################
+# Save run for later usage with 'Herwig run'
+##################################################
+saverun LEP-BeamSpread EventGenerator
+
+##################################################
+# Optional batch example, without a separate 'Herwig run'
+##################################################
+# set EventGenerator:NumberOfEvents 100
+# run LEP-BeamSpread-Zpole EventGenerator
+# set /Herwig/EventHandlers/BeamSpread:MeanEnergyA 104.0*GeV
+# set /Herwig/EventHandlers/BeamSpread:MeanEnergyB 104.0*GeV
+# run LEP-BeamSpread-maxE EventGenerator

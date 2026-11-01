@@ -71,9 +71,11 @@ void ProcessHandler::initialize(tSubHdlPtr sub, tCutsPtr cut, tEHPtr eh) {
   xSecs().clear();
 
   cuts()->initialize(sqr(maxEnergy), lumiFn().Y());
+  cuts()->beamSMin(sqr(lumiFn().minimumCMEnergy()));
 
   CutsPtr kincuts = (*subProcess()).cuts()? (*subProcess()).cuts(): cuts();
   if ( (*subProcess()).cuts() ) kincuts->initialize(sqr(maxEnergy), lumiFn().Y());
+  kincuts->beamSMin(sqr(lumiFn().minimumCMEnergy()));
   PExtrPtr pextract = (*subProcess()).pExtractor();
 
   // Use an empty ckkw handler for the additional interactions:

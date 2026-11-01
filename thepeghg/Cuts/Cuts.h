@@ -93,11 +93,42 @@ public:
    */
   virtual void initialize(Energy2 smax, double Y);
 
+  /** Set the lower collision-energy bound before constructing PDF bins. */
+  void beamSMin(Energy2 smin) { theSMin = smin; }
+
   /**
-   * Initialize this object for a new event. A sub-class overriding
+   * Set transient beam kinematics before evaluating a phase-space point.
+   * The values stay active until replaced, or cleared by initialize(),
+   * initEvent(), or persistentInput(). There is no automatic end-of-event reset.
+   */
+  void beamKinematics(Energy2 s, double y) const {
+    theCurrentS = s;
+    theCurrentBeamY = y;
+  }
+
+  /**
+   * Sampled collision energy squared while beam context is active;
+   * otherwise the initialization upper bound. This does not detect whether
+   * a call occurs inside or outside event generation.
+   */
+  Energy2 currentS() const { return theCurrentS > ZERO ? theCurrentS : SMax(); }
+  /** Sampled beam rapidity while context is active; otherwise initialized Y(). */
+  double currentBeamY() const { return theCurrentS > ZERO ? theCurrentBeamY : Y(); }
+
+  /**
+   * Run support bounds when beam context is clear, or the sampled energy
+   * squared at both ends while context is active. Construct PDF bins after
+   * initialize() and setting beamSMin(), before installing sampled context.
+   */
+  Energy2 beamSLower() const {
+    return theCurrentS > ZERO ? theCurrentS : theSMin;
+  }
+  Energy2 beamSUpper() const { return currentS(); }
+
+  /**
+   * Clear transient beam and subprocess context. A sub-class overriding
    * this function must make sure the base-class function is called.
-   * This function is called before the generation of a new
-   * sub-process, before the incoming partons have been generated.
+   * Called at run initialization and when reading persistent state.
    */
   virtual void initEvent();
 
@@ -372,7 +403,7 @@ public:
 
   /**
    * The total rapidity of hard sub-process (wrt. the rest system of
-   * the colliding particles so that currentYHat() + Y() gives the
+   * the colliding particles so that currentYHat() + currentBeamY() gives the
    * true rapidity) of the event being considered.
    */
   double currentYHat() const { return theCurrentYHat; }
@@ -384,12 +415,12 @@ public:
   /**
    * The minimum allowed value of \f$\hat{s}\f$.
    */
-  Energy2 sHatMin() const { return max(sqr(theMHatMin), theX1Min*theX2Min*SMax()); }
+  Energy2 sHatMin() const { return max(sqr(theMHatMin), theX1Min*theX2Min*beamSLower()); }
 
   /**
    * The maximum allowed value of \f$\hat{s}\f$.
    */
-  Energy2 sHatMax() const { return min(sqr(theMHatMax), theX1Max*theX2Max*SMax()); }
+  Energy2 sHatMax() const { return min(sqr(theMHatMax), theX1Max*theX2Max*beamSUpper()); }
 
   /**
    * Check if the given \f$\hat{s}\f$ is within the cuts.
@@ -401,12 +432,12 @@ public:
   /**
    * The minimum allowed value of \f$\sqrt{\hat{s}}\f$.
    */
-  Energy mHatMin() const { return max(theMHatMin, sqrt(theX1Min*theX2Min*SMax())); }
+  Energy mHatMin() const { return sqrt(sHatMin()); }
 
   /**
    * The maximum allowed value of \f$\sqrt{\hat{s}}\f$.
    */
-  Energy mHatMax() const { return min(theMHatMax, sqrt(theX1Max*theX2Max*SMax())); }
+  Energy mHatMax() const { return sqrt(sHatMax()); }
 
   /**
    * The minimum value of the rapidity of the hard sub-process
@@ -662,6 +693,10 @@ private:
    */
   Energy2 theSMax;
 
+  Energy2 theSMin;
+  mutable Energy2 theCurrentS;
+  mutable double theCurrentBeamY;
+
   /**
    * The total rapidity of the colliding particles corresponding to
    * the maximum invariant mass squared, SMax().
@@ -824,6 +859,7 @@ struct ClassTraits<Cuts>
   : public ClassTraitsBase<Cuts> {
   /** Return a platform-independent class name */
   static string className() { return "ThePEG::Cuts"; }
+  static int version() { return 1; }
 };
 
 /** @endcond */

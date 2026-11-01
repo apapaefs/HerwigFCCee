@@ -162,11 +162,34 @@ void HepMCConverter<HepMCEventT,Traits>::init(const Event & ev, bool nocopies) {
     if ( !member(vmap, it->second) )
       vmap[it->second] = createVertex(it->second);
 
-  // First add the decay vertices for the first beam particle to avoid issue in HepMC3
-  const Vertex * prim = decv[ev.incoming().first];
-  if(prim) {
-    Traits::addVertex(*geneve, vmap[prim]);
-    vmap.erase(prim);
+  // Add parents before children. HepMC3's compact single-parent ASCII
+  // representation cannot round-trip a forward parent reference (notably
+  // the second lepton's ISR vertex). Pointer-map order is not event order.
+  vector<const Vertex *> ordered;
+  set<const Vertex *> seen;
+  for (tcPVector::const_iterator p = all.begin(); p != all.end(); ++p) {
+    const Vertex * v = prov[*p];
+    if (v && seen.insert(v).second) ordered.push_back(v);
+    v = decv[*p];
+    if (v && seen.insert(v).second) ordered.push_back(v);
+  }
+  set<const Vertex *> added;
+  while (added.size() < vmap.size()) {
+    const size_t before = added.size();
+    for (typename vector<const Vertex *>::const_iterator v = ordered.begin();
+         v != ordered.end(); ++v) {
+      if (added.count(*v) || !vmap.count(*v)) continue;
+      bool ready = true;
+      for (tcParticleSet::const_iterator p = (*v)->in.begin(); p != (*v)->in.end(); ++p) {
+        const Vertex * parent = prov[*p];
+        if (parent && vmap.count(parent) && !added.count(parent)) ready = false;
+      }
+      if (!ready) continue;
+      Traits::addVertex(*geneve, vmap[*v]);
+      added.insert(*v);
+    }
+    if (before == added.size()) Throw<HepMCConverterException>()
+      << "Cyclic event ancestry in HepMC conversion." << Exception::eventerror;
   }
 
   // Now find the primary signal process vertex defined to be the
@@ -176,13 +199,7 @@ void HepMCConverter<HepMCEventT,Traits>::init(const Event & ev, bool nocopies) {
   if ( sub && sub->incoming().first && sub->incoming().first!=ev.incoming().first) {
     const Vertex * prim = decv[sub->incoming().first];
     Traits::setSignalProcessVertex(*geneve, vmap[prim]);
-    vmap.erase(prim);
   }
-  
-  // Then add the rest of the vertices.
-  for ( typename GenVertexMap::iterator it = vmap.begin();
-	it != vmap.end(); ++it )
-    Traits::addVertex(*geneve, it->second);
 
   // and the incoming beam particles
   Traits::setBeamParticles(*geneve,pmap[ev.incoming().first],

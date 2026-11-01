@@ -193,11 +193,13 @@ void StandardEventHandler::initialize() {
   xCombs().clear();
 
   cuts()->initialize(sqr(maxEnergy), lumiFn().Y());
+  cuts()->beamSMin(sqr(lumiFn().minimumCMEnergy()));
 
   for ( SubHandlerList::const_iterator sit = subProcesses().begin();
 	sit != subProcesses().end(); ++sit ) {
     CutsPtr kincuts = (**sit).cuts()? (**sit).cuts(): cuts();
     if ( (**sit).cuts() ) kincuts->initialize(sqr(maxEnergy), lumiFn().Y());
+    kincuts->beamSMin(sqr(lumiFn().minimumCMEnergy()));
     PExtrPtr pextract = (**sit).pExtractor();
 
     tCascHdlPtr ckkw = (**sit).CKKWHandler();
@@ -229,6 +231,7 @@ void StandardEventHandler::initialize() {
 CrossSection StandardEventHandler::
 dSigDR(const pair<double,double> ll, Energy2 maxS,
        int ibin, int nr, const double * r) {
+  cuts()->beamKinematics(maxS, lumiFn().beamRapidity(ll.first, ll.second));
   PPair inc = make_pair(incoming().first->produceParticle(),
 			incoming().second->produceParticle());
   SimplePhaseSpace::CMS(inc, maxS);
@@ -241,6 +244,10 @@ tStdXCombPtr StandardEventHandler::select(int bin, double & weight) {
   // clean up the old XComb object before switching to a new one
   if ( theLastXComb && theLastXComb != lastXC ) theLastXComb->clean();
   theLastXComb = lastXC;
+  cuts()->beamKinematics(lastXC->lastS(),
+    lumiFn().beamRapidity(lastXC->lastP1(), lastXC->lastP2()));
+  lastXC->cuts()->beamKinematics(lastXC->lastS(),
+    lumiFn().beamRapidity(lastXC->lastP1(), lastXC->lastP2()));
   weight /= lastXC->matrixElement()->preWeight();
   lastXC->select(weight);
   xSecStats.select(weight);

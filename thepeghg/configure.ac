@@ -5,7 +5,9 @@ AC_INIT([ThePEG],[devel],[http://www.thep.lu.se/ThePEG/],[ThePEG])
 AC_CONFIG_AUX_DIR([Config])
 AC_CONFIG_MACRO_DIR([m4])
 
-THEPEG_LIBTOOL_VERSION_INFO(30,0,0)
+dnl LuminosityFunction virtuals, Cuts layout and StandardXComb::fill changed.
+dnl Dependent libraries must be rebuilt; this ABI is not backward compatible.
+THEPEG_LIBTOOL_VERSION_INFO(31,0,0)
 
 AC_CONFIG_SRCDIR([EventRecord/SubProcess.h])
 AC_CONFIG_HEADERS([Config/config.h])

@@ -1,5 +1,18 @@
 Toolkit for High Energy Physics Event Generation - ThePEG
 
+This branch uses libtool ABI version 31:0:0. The luminosity interface, Cuts
+layout and StandardXComb::fill signature require dependent applications and
+libraries to be rebuilt. fill reads both luminosity coordinates from a required
+parent XComb, checks that they are finite, and checks the collision invariant
+mass against the parent and incoming beam momenta. Its unit test covers both
+successful restoration and invalid input.
+
+Event and Collision transformations include detached NLO subprocess particles
+exactly once, including shared projected particles. JetRegion rapidity ranges
+and JetPairRegion detector hemispheres include the beam rapidity. This corrects
+asymmetric fixed-beam configurations such as DIS as well as fluctuating beams;
+symmetric fixed-beam selections are unchanged.
+
 To compile and install ThePEG follow these steps:
 
 1: run the configure script. To override the defaults: set eg. the
@@ -43,6 +56,14 @@ To compile and install ThePEG follow these steps:
    makefile is installed in the 'share/ThePEG' directory together with
    an emacs lisp file 'ThePEG.el' with some functions for creating
    skeletons of new ThePEG classes.
+
+Gaussian beam energy spectra are available as ThePEG::GaussianBeamLuminosity
+in the standard libThePEG library. The MeanEnergyA/B, RelativeSpreadA/B and
+NSigma interfaces specify independent, truncated Gaussian spectra for
+head-on electron/positron beams. RelativeSpread means sigma(E)/mean(E) and
+defaults to zero. The implementation uses the existing GSL dependency;
+its deterministic checks are included in 'make check'. See
+Handlers/GaussianBeamLuminosity.h for the kinematic conventions.
 
 Note that ThePEG is a framework for implementing event generator
 models, and by itself it does not contain enough physics models to

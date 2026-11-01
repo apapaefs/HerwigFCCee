@@ -62,10 +62,10 @@ bool SimpleDISCut::passCuts(tcCutsPtr cuts, tcPDPtr pitype, tcPDPtr pjtype,
     if ( incj ) return true;
     if ( !check(pitype->id(), pjtype->id()) ) return true;
     Energy2 Q2 = -(pi - pj).m2();
-    double x = min(1.0, sqrt(cuts->currentSHat()/cuts->SMax())*
+    double x = min(1.0, sqrt(cuts->currentSHat()/cuts->currentS())*
 		   exp(-cuts->currentYHat()));
     Energy2 W2 = (1.0 - x)*Q2/x;
-    double y =  Q2/cuts->SMax()/x;
+    double y =  Q2/cuts->currentS()/x;
     return y > theMiny && y < theMaxy && Q2 > theMinQ2 && Q2 < theMaxQ2
       && W2 > theMinW2 && W2 < theMaxW2;
   }
@@ -73,10 +73,10 @@ bool SimpleDISCut::passCuts(tcCutsPtr cuts, tcPDPtr pitype, tcPDPtr pjtype,
     if ( !check(pjtype->id(), pitype->id()) ) return true;
     Energy2 Q2 = -(pj - pi).m2();
     double x =
-      min(1.0, sqrt(cuts->currentSHat()/cuts->SMax())*
+      min(1.0, sqrt(cuts->currentSHat()/cuts->currentS())*
 	  exp(cuts->currentYHat()));
     Energy2 W2 = (1.0 - x)*Q2/x;
-    double y =  Q2/cuts->SMax()/x;
+    double y =  Q2/cuts->currentS()/x;
     return y > theMiny && y < theMaxy && Q2 > theMinQ2 && Q2 < theMaxQ2
       && W2 > theMinW2 && W2 < theMaxW2;
   }

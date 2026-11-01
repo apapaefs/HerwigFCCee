@@ -65,6 +65,12 @@ public:
    */
   virtual Energy maximumCMEnergy() const;
 
+  /** Lower endpoint of the collision energy support (fixed beams by default). */
+  virtual Energy minimumCMEnergy() const { return maximumCMEnergy(); }
+
+  /** Laboratory rapidity at a sampled pair of luminosity logarithms. */
+  virtual double beamRapidity(double, double) const { return Y(); }
+
   /**
    * Return the rotation needed to transform from the collision cm
    * system to the labotatory system. This default version returns the

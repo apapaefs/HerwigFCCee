@@ -11,6 +11,7 @@
 // the Event class.
 //
 #include "Event.h"
+#include "TransformSubProcesses.h"
 #include "ThePEG/EventRecord/SubProcess.h"
 #include "ThePEG/Utilities/Rebinder.h"
 #include "ThePEG/EventRecord/ParticleTraits.h"
@@ -98,7 +99,8 @@ void Event::addParticle(tPPtr p) {
 }
 
 void Event::transform(const LorentzRotation & r) {
-  for_each(allParticles, Transformer(r));
+  EventRecordDetail::transformParticles(allParticles, allSubProcesses.begin(),
+                                       allSubProcesses.end(), r);
 }
 
 int Event::colourLineIndex(tcColinePtr line) const {

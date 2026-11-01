@@ -57,7 +57,7 @@ bool MadGraphOneCut::passCuts(tcCutsPtr parent,
   if ( !checkType(ptype) ) return true;
   if ( cutType == Cut::PT ) return p.perp() > theCut*GeV;
   if ( cutType == Cut::ETA ) {
-    double y = p.rapidity() + parent->Y() + parent->currentYHat();
+    double y = p.rapidity() + parent->currentBeamY() + parent->currentYHat();
     return abs(p.mt()*sinh(y)) < p.perp()*sinh(theCut);
   }
   return true;

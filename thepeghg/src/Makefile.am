@@ -24,6 +24,17 @@ setupThePEG_LDFLAGS = $(AM_LDFLAGS) $(myLDFLAGS)
 setupThePEG_CPPFLAGS = $(AM_CPPFLAGS) \
 -DTHEPEG_PKGLIBDIR="\"$(pkglibdir)\""
 
+check_PROGRAMS = testGaussianBeamLuminosity testSubProcessTransforms testJetCutFrames testXCombLuminosityContract
+TESTS = $(check_PROGRAMS)
+testGaussianBeamLuminosity_SOURCES = testGaussianBeamLuminosity.cc
+testGaussianBeamLuminosity_LDADD = $(myLDADD) $(GSLLIBS)
+testSubProcessTransforms_SOURCES = testSubProcessTransforms.cc
+testSubProcessTransforms_LDADD = $(myLDADD) $(GSLLIBS)
+testJetCutFrames_SOURCES = testJetCutFrames.cc ../Cuts/JetRegion.cc ../Cuts/JetPairRegion.cc
+testJetCutFrames_LDADD = $(myLDADD) $(GSLLIBS)
+testXCombLuminosityContract_SOURCES = testXCombLuminosityContract.cc
+testXCombLuminosityContract_LDADD = $(myLDADD) $(GSLLIBS)
+
 if USELHAPDF
 pkglib_LTLIBRARIES = TestLHAPDF.la
 TestLHAPDF_la_SOURCES = TestLHAPDF.cc TestLHAPDF.h

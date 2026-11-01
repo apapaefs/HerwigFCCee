@@ -14,6 +14,14 @@ Herwig_LDFLAGS = $(AM_LDFLAGS) -export-dynamic $(THEPEGLDFLAGS)
 Herwig_LDADD = $(THEPEGLIB) -ldl \
 $(top_builddir)/API/libHerwigAPI.la
 
+check_PROGRAMS = testMatchboxCutFrames
+TESTS = $(check_PROGRAMS)
+testMatchboxCutFrames_SOURCES = testMatchboxCutFrames.cc \
+../MatrixElement/Matchbox/Cuts/IdentifiedParticleCut.cc \
+../MatrixElement/Matchbox/Cuts/PairRapidityCut.cc
+testMatchboxCutFrames_LDFLAGS = $(AM_LDFLAGS) $(THEPEGLDFLAGS)
+testMatchboxCutFrames_LDADD = $(THEPEGLIB)
+
 bin_SCRIPTS = herwig-config
 
 HELPERFILES = \
@@ -49,6 +57,7 @@ ILC-MSSM.in \
 ILC-MUED.in \
 ILC-RS.in \
 LEP.in \
+LEP-BeamSpread.in \
 LEP-Matchbox.in \
 LEP-LowEnergy.in \
 LHC-ADD.in \
@@ -122,7 +131,7 @@ endif
 check_BSM_Full_valgrind = $(subst check,check-valgrind,$(check_BSM_Full))
 check_BSM_valgrind = $(subst check,check-valgrind,$(check_BSM))
 
-check-local: check-LEP check-LHC $(check_BSM) check-DIS check-ILC check-GammaGamma check-LHC-Powheg
+check-local: check-LEP check-LEP-BeamSpread check-LHC $(check_BSM) check-DIS check-ILC check-GammaGamma check-LHC-Powheg
 
 check-valgrind-local: check-valgrind-LEP check-valgrind-LHC $(check_BSM_valgrind) check-valgrind-DIS check-valgrind-ILC check-valgrind-GammaGamma check-valgrind-LHC-Powheg
 

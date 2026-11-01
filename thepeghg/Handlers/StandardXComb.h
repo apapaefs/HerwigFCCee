@@ -129,12 +129,17 @@ public:
   bool setIncomingPartons(tStdXCombPtr labHead = tStdXCombPtr());
 
   /**
-   * Fill phase space information as far as possible
+   * Fill phase space information using the incoming beam-CM momenta and
+   * the luminosity point read directly from the required parent XComb.
+   * Both coordinates must be finite and the collision invariant mass must
+   * agree with the parent before changing this object. No fixed-beam defaults
+   * or separately supplied copies of the coordinates apply.
    */
   void fill(const PPair& newParticles,
 	    const PPair& newPartons,
 	    const vector<Lorentz5Momentum>& newMEMomenta,
-	    const DVector& newLastRandomNumbers = DVector());
+    const DVector& newLastRandomNumbers,
+    const XComb& luminositySource);
 
   //@}
 

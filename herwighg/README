@@ -12,3 +12,14 @@ BUILD AND INSTALL
 =================
 Please refer to https://herwig.hepforge.org/tutorials/ for detailed 
 instructions.
+
+The LEP-BeamSpread.in example uses ThePEG::GaussianBeamLuminosity from the
+standard ThePEG library. It is installed alongside LEP.in and runs with
+'Herwig read LEP-BeamSpread.in' followed by 'Herwig run LEP-BeamSpread.run'.
+The example selects 45.6 GeV per beam and independent 0.221% energy spreads.
+Build and install ThePEG before Herwig when updating the luminosity interface.
+This branch requires a rebuild against ThePEG ABI 31:0:0. Matchbox's
+IdentifiedParticleCut and PairRapidityCut now include the beam rapidity in
+laboratory selections, including the pair pseudorapidity option. This changes
+asymmetric fixed-beam setups such as DIS as well as Gaussian-spread runs.
+Their native regression is included in 'make check'.

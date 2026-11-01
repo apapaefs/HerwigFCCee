@@ -317,6 +317,13 @@ void NLOHepMCFile::Init() {
      "GenEvent",
      "IO_GenEvent format",
      1);
+#ifdef HAVE_HEPMC3
+  static SwitchOption interfaceFormatGenEventHepMC3
+    (interfaceFormat,
+     "GenEventHepMC3",
+     "HepMC3 ASCII format, preserving correlated subevent numbers",
+     6);
+#endif
   static SwitchOption interfaceFormatAsciiParticles
     (interfaceFormat,
      "AsciiParticles",

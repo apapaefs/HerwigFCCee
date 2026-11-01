@@ -159,7 +159,7 @@ bool KTRapidityCut::passCuts(tcCutsPtr parent,
   if ( theMatcher && !theMatcher->matches(*ptype) ) return true;
   if ( p.perp() < theMinKT ) return false;
   if ( p.perp() > theMaxKT ) return false;
-  double y = p.rapidity() + parent->Y() + parent->currentYHat();
+  double y = p.rapidity() + parent->currentBeamY() + parent->currentYHat();
   if ( y > theMaxRapidity ) return false;
   if ( y < theMinRapidity ) return false;
   return true;

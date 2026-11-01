@@ -43,7 +43,7 @@ double OneCutBase::maxMinEta(tcPDPtr p) const {
 bool OneCutBase::passCuts(tcCutsPtr parent,
 			  tcPDPtr ptype, LorentzMomentum p) const {
   if ( p.perp() <= minKT(ptype) ) return false;
-  double y = p.rapidity() + parent->Y() + parent->currentYHat();
+  double y = p.rapidity() + parent->currentBeamY() + parent->currentYHat();
   if ( p.mt()*sinh(y) <= p.perp()*sinh(minEta(ptype)) ) return false;
   if ( p.mt()*sinh(y) >= p.perp()*sinh(maxEta(ptype)) ) return false;
   return true;

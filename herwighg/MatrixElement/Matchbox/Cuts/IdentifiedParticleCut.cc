@@ -54,7 +54,7 @@ bool IdentifiedParticleCut::passCuts(tcCutsPtr parent,
     return false;
   }
 
-  double y = p.rapidity() + parent->currentYHat();
+  double y = p.rapidity() + parent->currentYHat() + parent->currentBeamY();
   for ( vector<pair<double,double> >::const_iterator dy = yRanges().begin();
 	dy != yRanges().end(); ++dy ) {
     if ( !parent->isInside<CutTypes::Rapidity>(y,dy->first,dy->second,weight) ) {
@@ -137,7 +137,7 @@ void IdentifiedParticleCut::Init() {
 
   static Command<IdentifiedParticleCut> interfaceYRange
     ("YRange",
-     "Insert a rapidity range.",
+     "Insert a rapidity range in the laboratory frame.",
      &IdentifiedParticleCut::doYRange, false);
 
   static Reference<IdentifiedParticleCut,MatcherBase> interfaceMatcher

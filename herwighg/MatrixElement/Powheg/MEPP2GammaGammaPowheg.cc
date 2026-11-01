@@ -183,7 +183,7 @@ bool MEPP2GammaGammaPowheg::generateKinematics(const double * r) {
     double ymax2 = lastCuts().maxYStar(mePartonData()[2]);
     double ymin3 = lastCuts().minYStar(mePartonData()[3]);
     double ymax3 = lastCuts().maxYStar(mePartonData()[3]);
-    double ytot = lastCuts().Y() + lastCuts().currentYHat();
+    double ytot = lastCuts().currentBeamY() + lastCuts().currentYHat();
     if ( ymin2 + ytot > -0.9*Constants::MaxRapidity )
       ctmin = max(ctmin, sqrt(sqr(q) +  m22)*tanh(ymin2)/q);
     if ( ymax2 + ytot < 0.9*Constants::MaxRapidity )

@@ -111,7 +111,8 @@ bool ShowerApproximationGenerator::prepare(bool didproject) {
 
   theLastBornXComb->clean();
   theLastBornXComb->fill(lastIncomingXComb->lastParticles(),theLastPartons,
-			 theLastMomenta,theLastRandomNumbers);
+			 theLastMomenta,theLastRandomNumbers,
+                         *lastIncomingXComb);
 
   if ( !theLastBornXComb->cuts()->initSubProcess(theLastBornXComb->lastSHat(), 
 						 theLastBornXComb->lastY(), 
@@ -164,7 +165,7 @@ bool ShowerApproximationGenerator::generate(const vector<double>& r) {
 
     theLastBornME->setXComb(theLastBornXComb);
     theLastBornXComb->lastParticles(lastIncomingXComb->lastParticles());
-    theLastBornXComb->lastP1P2(make_pair(0.0, 0.0));
+    theLastBornXComb->lastP1P2(make_pair(lastIncomingXComb->lastP1(), lastIncomingXComb->lastP2()));
     theLastBornXComb->lastS(lastIncomingXComb->lastS());
 
     if ( !theLastBornME->generateKinematics(&r[0]) )
@@ -194,7 +195,8 @@ bool ShowerApproximationGenerator::generate(const vector<double>& r) {
   }
 
   theLastBornXComb->fill(lastIncomingXComb->lastParticles(),theLastPartons,
-			 theLastPresamplingMomenta,r);
+                         theLastPresamplingMomenta,r,
+                         *lastIncomingXComb);
 
   if ( !theLastBornXComb->cuts()->initSubProcess(theLastBornXComb->lastSHat(), 
 						 theLastBornXComb->lastY(), 
@@ -235,7 +237,7 @@ void ShowerApproximationGenerator::restore() {
 
     theLastBornME->setXComb(theLastBornXComb);
     theLastBornXComb->lastParticles(lastIncomingXComb->lastParticles());
-    theLastBornXComb->lastP1P2(make_pair(0.0, 0.0));
+    theLastBornXComb->lastP1P2(make_pair(lastIncomingXComb->lastP1(), lastIncomingXComb->lastP2()));
     theLastBornXComb->lastS(lastIncomingXComb->lastS());
 
     theLastBornME->generateKinematics(&theLastRandomNumbers[0]);
@@ -246,7 +248,8 @@ void ShowerApproximationGenerator::restore() {
   }
 
   theLastBornXComb->fill(lastIncomingXComb->lastParticles(),theLastPartons,
-			 theLastMomenta,theLastRandomNumbers);
+			 theLastMomenta,theLastRandomNumbers,
+                         *lastIncomingXComb);
 
   if ( !hasFractions ) {
     theLastBornME->setXComb(theLastBornXComb);

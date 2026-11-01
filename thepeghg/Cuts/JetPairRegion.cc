@@ -86,9 +86,8 @@ bool JetPairRegion::matches(tcCutsPtr parent) {
 	 firstRegion()->lessThanRapidity(dR,deltaRMax(),theCutWeight)) )
     return false;
 
-  double py = 
-    (pi.rapidity() + parent->currentYHat()) * 
-    (pj.rapidity() + parent->currentYHat());
+  const double labY = parent->currentYHat() + parent->currentBeamY();
+  double py = (pi.rapidity() + labY) * (pj.rapidity() + labY);
   if ( theOppositeHemispheres && 
        !firstRegion()->lessThanRapidity(py,0.0,theCutWeight) )
     return false;

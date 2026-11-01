@@ -153,7 +153,7 @@ bool JetRegion::matches(tcCutsPtr parent, int n, const LorentzMomentum& p,
     return false;
   }
 
-  double currentY = parent ? parent->currentYHat() : yHat;
+  double currentY = parent ? parent->currentYHat() + parent->currentBeamY() : yHat;
 
   bool inRange = false || yRanges().empty();
   for ( vector<pair<double,double> >::const_iterator r = yRanges().begin();

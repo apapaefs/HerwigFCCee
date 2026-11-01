@@ -32,7 +32,8 @@
 using namespace ThePEG;
 
 Cuts::Cuts(Energy MhatMin)
-  : theSMax(ZERO), theY(0), theCurrentSHat(-1.0*GeV2),
+  : theSMax(ZERO), theSMin(ZERO), theCurrentS(ZERO), theCurrentBeamY(0),
+    theY(0), theCurrentSHat(-1.0*GeV2),
     theCurrentYHat(0), theMHatMin(MhatMin), theMHatMax(Constants::MaxEnergy),
     theYHatMin(-Constants::MaxRapidity), theYHatMax(Constants::MaxRapidity),
     theX1Min(0.0), theX1Max(1.0), theX2Min(0.0), theX2Max(1.0),
@@ -49,6 +50,7 @@ IBPtr Cuts::fullclone() const {
 
 void Cuts::doinitrun() {
   Interfaced::doinitrun();
+  initEvent();
   if ( Debug::level ) {
     describe();
     for_each(theOneCuts,   mem_fn(&OneCutBase::describe));
@@ -71,12 +73,16 @@ void Cuts::describe() const {
 
 void Cuts::initialize(Energy2 smax, double Y) {
   theSMax = smax;
+  theSMin = smax;
+  theCurrentS = ZERO;
   theMHatMax = min(theMHatMax, sqrt(smax));
   theY = Y;
   theSubMirror = false;
 }
 
 void Cuts::initEvent() {
+  theCurrentS = ZERO;
+  theCurrentBeamY = theY;
   theCurrentSHat = -1.0*GeV2;
   theCurrentYHat = 0.0;
   theSubMirror = false;
@@ -96,12 +102,12 @@ bool Cuts::initSubProcess(Energy2 shat, double yhat, bool mirror) const {
     theCutWeight = 0.0;
     return false;
   }
-  double x1 = min(1.0, sqrt(shat/SMax())*exp(yhat));
+  double x1 = min(1.0, sqrt(shat/currentS())*exp(yhat));
   if ( x1 <= x1Min() || x1 > x1Max() ) {
     theCutWeight = 0.0;
     return false;
   }
-  double x2 = min(1.0, sqrt(shat/SMax())*exp(-yhat));
+  double x2 = min(1.0, sqrt(shat/currentS())*exp(-yhat));
   if ( x2 <= x2Min() || x2 > x2Max() ) {
     theCutWeight = 0.0;
     return false;
@@ -258,7 +264,7 @@ Energy2 Cuts::minS(const tcPDVector & pv) const {
 }
 
 Energy2 Cuts::maxS(const tcPDVector & pv) const {
-  Energy2 maxs = SMax();
+  Energy2 maxs = currentS();
   for ( int i = 0, N = theMultiCuts.size(); i < N; ++i )
     maxs = min(maxs, theMultiCuts[i]->maxS(pv));
   return maxs;
@@ -336,7 +342,7 @@ double Cuts::minYStar(tcPDPtr p) const {
     return -maxYStar(p);
   }
   double etamin = minEta(p);
-  double ytot = Y() + currentYHat();
+  double ytot = currentBeamY() + currentYHat();
   if ( etamin > 0.0 ) {
     Energy minkt = minKT(p);
     Energy maxm = p->massMax();
@@ -353,7 +359,7 @@ double Cuts::maxYStar(tcPDPtr p) const {
     return -minYStar(p);
   }
   double etamax = maxEta(p);
-  double ytot = Y() + currentYHat();
+  double ytot = currentBeamY() + currentYHat();
   if ( etamax > 0.0 ) {
     return etamax - ytot;
   } else {
@@ -384,10 +390,11 @@ void Cuts::persistentOutput(PersistentOStream & os) const {
      << theX1Min << theX1Max << theX2Min << theX2Max << ounit(theScaleMin, GeV2)
      << ounit(theScaleMax, GeV2) << theOneCuts << theTwoCuts << theMultiCuts
      << theJetFinder << theSubMirror
-     << theCutWeight << theLastCutWeight << theFuzzyTheta;
+     << theCutWeight << theLastCutWeight << theFuzzyTheta
+     << ounit(theSMin, GeV2);
 }
 
-void Cuts::persistentInput(PersistentIStream & is, int) {
+void Cuts::persistentInput(PersistentIStream & is, int version) {
   is >> iunit(theSMax, GeV2) >> theY >> iunit(theCurrentSHat, GeV2)
      >> theCurrentYHat >> iunit(theMHatMin, GeV) >> iunit(theMHatMax, GeV)
      >> theYHatMin >> theYHatMax
@@ -395,6 +402,9 @@ void Cuts::persistentInput(PersistentIStream & is, int) {
      >> iunit(theScaleMax, GeV2) >> theOneCuts >> theTwoCuts >> theMultiCuts
      >> theJetFinder >> theSubMirror
      >> theCutWeight >> theLastCutWeight >> theFuzzyTheta;
+  theSMin = theSMax;
+  if ( version >= 1 ) is >> iunit(theSMin, GeV2);
+  initEvent();
 }
 
 ClassDescription<Cuts> Cuts::initCuts;
@@ -604,11 +614,11 @@ bool Cuts::yHat(double y) const {
 }
 
 double Cuts::x1Min() const {
-  return max(theX1Min, (theMHatMin/sqrt(SMax()))*exp(theYHatMin));
+  return max(theX1Min, (theMHatMin/sqrt(beamSUpper()))*exp(theYHatMin));
 }
 
 double Cuts::x1Max() const {
-  return min(theX1Max, (theMHatMax/sqrt(SMax()))*exp(theYHatMax));
+  return min(theX1Max, (theMHatMax/sqrt(beamSLower()))*exp(theYHatMax));
 }
 
 bool Cuts::x1(double x) const {
@@ -616,11 +626,11 @@ bool Cuts::x1(double x) const {
 }
 
 double Cuts::x2Min() const {
-  return max(theX2Min, (theMHatMin/sqrt(SMax()))/exp(theYHatMax));
+  return max(theX2Min, (theMHatMin/sqrt(beamSUpper()))/exp(theYHatMax));
 }
 
 double Cuts::x2Max() const {
-  return min(theX2Max, (theMHatMax/sqrt(SMax()))/exp(theYHatMin));
+  return min(theX2Max, (theMHatMax/sqrt(beamSLower()))/exp(theYHatMin));
 }
 
 bool Cuts::x2(double x) const {

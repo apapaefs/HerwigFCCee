@@ -12,6 +12,7 @@
 // functions of the StandardXComb class.
 //
 
+#include "ThePEG/Handlers/LuminosityFunction.h"
 #include "StandardXComb.h"
 #include "StdXCombGroup.h"
 #include "ThePEG/Handlers/StandardEventHandler.h"
@@ -186,7 +187,7 @@ bool StandardXComb::setIncomingPartons(tStdXCombPtr labHead) {
   if ( labHead->matrixElement()->wantCMS() ) {
     Boost toLab = (labHead->lastPartons().first->momentum() + 
 		   labHead->lastPartons().second->momentum()).boostVector();
-    if ( toLab.mag2() > Constants::epsilon ) {
+    if ( toLab.mag2() > sqr(Constants::epsilon) ) {
       pFirst.boost(toLab);
       pSecond.boost(toLab);
     }
@@ -203,6 +204,7 @@ bool StandardXComb::setIncomingPartons(tStdXCombPtr labHead) {
   lastSHat((lastPartons().first->momentum() +
 	    lastPartons().second->momentum()).m2());
   lastP1P2(make_pair(labHead->lastP1(),labHead->lastP2()));
+  cuts()->beamKinematics(lastS(), eventHandler().lumiFn().beamRapidity(lastP1(), lastP2()));
 
   double x1 = 
     lastPartons().first->momentum().plus()/
@@ -222,13 +224,38 @@ bool StandardXComb::setIncomingPartons(tStdXCombPtr labHead) {
 void StandardXComb::fill(const PPair& newParticles,
 			 const PPair& newPartons,
 			 const vector<Lorentz5Momentum>& newMEMomenta,
-			 const DVector& newLastRandomNumbers) {
+			 const DVector& newLastRandomNumbers,
+                         const XComb& luminositySource) {
+
+  // Read both coordinates from one source: their sum fixes s, while their
+  // difference fixes the laboratory rapidity. A separate pair of arguments
+  // could disagree with that source even if the invariant mass matched.
+  const pair<double,double> luminosityLogs(luminositySource.lastP1(),
+                                          luminositySource.lastP2());
+  if (!std::isfinite(luminosityLogs.first) ||
+      !std::isfinite(luminosityLogs.second))
+    throw Exception() << "StandardXComb::fill: nonfinite parent luminosity "
+                      << "coordinates." << Exception::runerror;
+  if (!newParticles.first || !newParticles.second)
+    throw Exception() << "StandardXComb::fill: missing incoming beam particles."
+                      << Exception::runerror;
+  const Energy2 sampledS = (newParticles.first->momentum() +
+                            newParticles.second->momentum()).m2();
+  const Energy2 expectedS = sqr(luminositySource.maxEnergy()) *
+    exp(-luminosityLogs.first-luminosityLogs.second);
+  if (!(expectedS > ZERO) || !std::isfinite(expectedS/GeV2) ||
+      !std::isfinite(sampledS/GeV2) ||
+      !std::isfinite(luminositySource.lastS()/GeV2) ||
+      abs(sampledS/expectedS-1.) > 1e-8 ||
+      abs(luminositySource.lastS()/expectedS-1.) > 1e-8)
+    throw Exception() << "StandardXComb::fill: collision energy disagrees "
+                      << "with the parent luminosity point." << Exception::runerror;
 
   lastParticles(newParticles);
 
-  lastP1P2(make_pair(0.0, 0.0));
-  lastS((lastParticles().first->momentum() +
-	 lastParticles().second->momentum()).m2());
+  lastP1P2(luminosityLogs);
+  lastS(sampledS);
+  cuts()->beamKinematics(lastS(), eventHandler().lumiFn().beamRapidity(lastP1(), lastP2()));
 
   lastPartons(newPartons);
   lastSHat((lastPartons().first->momentum() +
@@ -286,7 +313,7 @@ bool StandardXComb::willPassCuts() {
   tcPDVector outdata(mePartonData().begin()+2,mePartonData().end());
   vector<LorentzMomentum> outmomenta(meMomenta().begin()+2,meMomenta().end());
   Boost tocm = (meMomenta()[0]+meMomenta()[1]).findBoostToCM();
-  if ( tocm.mag2() > Constants::epsilon ) {
+  if ( tocm.mag2() > sqr(Constants::epsilon) ) {
     for ( vector<LorentzMomentum>::iterator p = outmomenta.begin();
 	  p != outmomenta.end(); ++p ) {
       p->boost(tocm);
@@ -396,6 +423,7 @@ dSigDR(const pair<double,double> ll, int nr, const double * r) {
   setPartonBinInfo();
   lastP1P2(ll);
   lastS(sqr(maxEnergy())/exp(lastP1() + lastP2()));
+  cuts()->beamKinematics(lastS(), eventHandler().lumiFn().beamRapidity(lastP1(), lastP2()));
 
   meMomenta().resize(mePartonData().size());
   matrixElement()->setXComb(this);
@@ -608,7 +636,7 @@ void StandardXComb::newSubProcess(bool group) {
     // first get the meMomenta in their CMS, as this may
     // not be the case
     Boost cm = (meMomenta()[0] + meMomenta()[1]).findBoostToCM();
-    if ( cm.mag2() > Constants::epsilon ) {
+    if ( cm.mag2() > sqr(Constants::epsilon) ) {
       for ( vector<Lorentz5Momentum>::iterator m = meMomenta().begin();
 	    m != meMomenta().end(); ++m ) {
 	*m = m->boost(cm);

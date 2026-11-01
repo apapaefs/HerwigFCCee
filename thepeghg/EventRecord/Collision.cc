@@ -11,6 +11,7 @@
 // the Collision class.
 //
 #include "Collision.h"
+#include "TransformSubProcesses.h"
 #include "ThePEG/EventRecord/SubProcess.h"
 #include "ThePEG/EventRecord/SubProcessGroup.h"
 #include "ThePEG/EventRecord/ParticleTraits.h"
@@ -75,7 +76,8 @@ void Collision::rebind(const EventTranslationMap & trans) {
 }
 
 void Collision::transform(const LorentzRotation & r) {
-  for_each(allParticles, Transformer(r));
+  EventRecordDetail::transformParticles(allParticles, theSubProcesses.begin(),
+                                       theSubProcesses.end(), r);
 }
 
 void Collision::addStep(tStepPtr s) {

@@ -12,6 +12,7 @@
 // functions of the StdXCombGroup class.
 //
 
+#include "ThePEG/Handlers/LuminosityFunction.h"
 #include "StdXCombGroup.h"
 #include "ThePEG/MatrixElement/MEGroup.h"
 #include "ThePEG/Handlers/StandardEventHandler.h"
@@ -86,6 +87,7 @@ CrossSection StdXCombGroup::dSigDR(const pair<double,double> ll, int nr, const d
   setPartonBinInfo();
   lastP1P2(ll);
   lastS(sqr(maxEnergy())/exp(lastP1() + lastP2()));
+  cuts()->beamKinematics(lastS(), eventHandler().lumiFn().beamRapidity(lastP1(), lastP2()));
 
   meMomenta().resize(mePartonData().size());
   matrixElement()->setXComb(this);
