@@ -83,6 +83,7 @@ void SubProcess::rebind(const EventTranslationMap & trans) {
   theIncoming.first = trans.translate(theIncoming.first);
   theIncoming.second = trans.translate(theIncoming.second);
   theCollision = trans.translate(theCollision);
+  theHead = trans.translate(theHead);
   for ( ParticleVector::iterator pit = theOutgoing.begin();
 	pit != theOutgoing.end(); ++pit )
     *pit = trans.translate(*pit);

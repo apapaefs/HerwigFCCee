@@ -180,6 +180,7 @@ private:
    * Choice of output precision in GenEvent format
    */
   unsigned int _geneventPrecision;
+  bool _geometryDiagnostics=false;
 
   /**
    * Count events

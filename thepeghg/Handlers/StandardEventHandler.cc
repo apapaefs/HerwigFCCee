@@ -445,10 +445,12 @@ EventPtr StandardEventHandler::generateEvent() {
       currentEvent(new_ptr(Event(lastParticles(), this, generator()->runName(),
 				 generator()->currentEventNumber(), weight)));
 
+      currentEvent()->geometry(currentEventBoost(),LorentzPoint());
+
       performCollision();
       if ( !currentCollision() ) throw Veto();
 
-      currentEvent()->transform(currentEventBoost());
+      currentEvent()->finishGeometry();
 
       return currentEvent();
 
@@ -473,6 +475,7 @@ EventPtr StandardEventHandler::continueEvent() {
     << "from the setup phase before it was used." << Exception::maybeabort;
   try {
     continueCollision();
+    if(currentEvent() && empty()) currentEvent()->finishGeometry();
   }
   catch (Veto) {
     reject(currentEvent()->weight());

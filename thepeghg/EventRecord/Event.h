@@ -177,6 +177,20 @@ public:
    */
   void transform(const LorentzRotation &);
 
+  /** Translate all production vertices, including detached subevents. */
+  void translate(const LorentzPoint &);
+
+  /** Set once, before generating the collision. Internal vertices stay relative
+   * to the generation origin until finishGeometry() is called. */
+  void geometry(const LorentzRotation & boost, const LorentzPoint & origin);
+  bool hasGeometry() const { return theHasGeometry; }
+  bool geometryComplete() const { return theGeometryComplete; }
+  /** Full generation-to-laboratory transformation, including spin rotation. */
+  const LorentzRotation & laboratoryTransform() const { return theLaboratoryBoost; }
+  const LorentzPoint & interactionPoint() const { return theInteractionPoint; }
+  LorentzPoint laboratoryPoint(const LorentzPoint &) const;
+  void finishGeometry();
+
   /**
    * Return the number assigned to this Event. The name is accessed
    * with the name() method of the Named base class.
@@ -426,6 +440,11 @@ private:
    */
   map<string,AnyReference> theMeta;
 
+  bool theHasGeometry = false;
+  bool theGeometryComplete = false;
+  LorentzRotation theLaboratoryBoost;
+  LorentzPoint theInteractionPoint;
+
 public:
 
   /**
@@ -480,6 +499,7 @@ struct BaseClassTrait<Event,1>: public ClassTraitsType {
  *  the Event class and how to create it. */
 template <>
 struct ClassTraits<Event>: public ClassTraitsBase<Event> {
+  static int version() { return 2; }
   /** Return a platform-independent class name */
   static string className() { return "ThePEG::Event"; }
   /** Create a Event object. */

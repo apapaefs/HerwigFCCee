@@ -30,8 +30,9 @@ namespace ThePEG {
 template <typename HepMCEventT, typename Traits>
 typename HepMCConverter<HepMCEventT,Traits>::GenEvent *
 HepMCConverter<HepMCEventT,Traits>::
-convert(const Event & ev, bool nocopies, Energy eunit, Length lunit) {
+convert(const Event & ev, bool nocopies, Energy eunit, Length lunit, bool diagnostics) {
   HepMCConverter<HepMCEventT,Traits> converter(ev, nocopies, eunit, lunit);
+  if(diagnostics) converter.writeGeometryDiagnostics(ev);
   return converter.geneve;
 }
 
@@ -72,6 +73,16 @@ HepMCConverter(const Event & ev, GenEvent & gev, bool nocopies,
 
   init(ev, nocopies);
 
+}
+
+template <typename HepMCEventT, typename Traits>
+void HepMCConverter<HepMCEventT,Traits>::writeGeometryDiagnostics(const Event &ev) {
+  if(ev.hasGeometry()) Traits::setInteractionPoint(*geneve,ev.interactionPoint());
+  for(const auto & item : pmap) {
+    const auto p=item.first;
+    Traits::setDecayGeometry(*item.second,p->lifeLength().tau()/mm,
+                            int(p->decayDisposition()),p->externalLifeTime());
+  }
 }
 
 struct ParticleOrderNumberCmp {
@@ -211,7 +222,7 @@ void HepMCConverter<HepMCEventT,Traits>::init(const Event & ev, bool nocopies) {
   setHeavyIon(ev);
 
   // and the cross section info
-  Traits::setCrossSection(*geneve,
+  if(eh) Traits::setCrossSection(*geneve,
 			  eh->integratedXSec()/picobarn,
 			  eh->integratedXSecErr()/picobarn);
   for ( int i = 0, N = all.size(); i < N; ++i ) {

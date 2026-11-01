@@ -71,7 +71,11 @@ void SubProcessGroup::persistentOutput(PersistentOStream & os) const {
 
 }
 
-void SubProcessGroup::persistentInput(PersistentIStream & is, int) {
+void SubProcessGroup::persistentInput(PersistentIStream & is, int version) {
+  if (version<1)
+    throw Exception() << "This saved SubProcessGroup predates persistence of its "
+                      << "SubProcess base. Recreate the run/event with this build."
+                      << Exception::runerror;
   is >> theDependent;
 }
 

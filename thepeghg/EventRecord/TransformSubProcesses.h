@@ -27,8 +27,8 @@ inline void collectDetachedParticles(tSubProPtr sub,
 }
 
 template <typename Iterator>
-void transformParticles(const ParticleSet & registered, Iterator first,
-                        Iterator last, const LorentzRotation & rotation) {
+ParticleSet allParticles(const ParticleSet & registered, Iterator first,
+                         Iterator last) {
   // Projectors can share particles with the head and with other dependents.
   // Do not register counterevents in the physical event history, and do not
   // invoke SubProcessGroup::transform after transforming registered particles.
@@ -36,8 +36,14 @@ void transformParticles(const ParticleSet & registered, Iterator first,
   SubProcessSet visited;
   for (; first != last; ++first)
     collectDetachedParticles(*first, registered, detached, visited);
-  for (const auto & p : registered) p->transform(rotation);
-  for (const auto & p : detached) p->transform(rotation);
+  detached.insert(registered.begin(),registered.end());
+  return detached;
+}
+
+template <typename Iterator>
+void transformParticles(const ParticleSet & registered, Iterator first,
+                        Iterator last, const LorentzRotation & rotation) {
+  for (const auto & p : allParticles(registered,first,last)) p->transform(rotation);
 }
 
 }

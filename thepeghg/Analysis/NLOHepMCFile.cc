@@ -37,7 +37,7 @@ NLOHepMCFile::NLOHepMCFile(const NLOHepMCFile & x)
     _ttreename(x._ttreename),_tbranchname(x._tbranchname),
 #endif
     _hepmcio(), _hepmcdump(), _unitchoice(x._unitchoice), 
-    _geneventPrecision(x._geneventPrecision),
+    _geneventPrecision(x._geneventPrecision), _geometryDiagnostics(x._geometryDiagnostics),
     
     _eventNumber(x._eventNumber) {}
 
@@ -77,6 +77,8 @@ HepMC::GenEvent * NLOHepMCFile::makeEvent(tEventPtr event, tSubProPtr sub, long 
 
   // generate one blob vertex
   VertexPtrT vertex = HepMCTraits<HepMC::GenEvent>::newVertex();
+  if (event->hasGeometry())
+    HepMCTraits<HepMC::GenEvent>::setPosition(*vertex,event->interactionPoint(),lUnit);
 
   HepMCTraits<HepMC::GenEvent>::addIncoming(*vertex,b1);
   HepMCTraits<HepMC::GenEvent>::addIncoming(*vertex,b2);
@@ -99,11 +101,14 @@ HepMC::GenEvent * NLOHepMCFile::makeEvent(tEventPtr event, tSubProPtr sub, long 
   HepMCTraits<HepMC::GenEvent>::setCrossSection(*ev,xsec/picobarn,
 						xsecErr/picobarn);
 
+  if(_geometryDiagnostics && event->hasGeometry())
+    HepMCTraits<HepMC::GenEvent>::setInteractionPoint(*ev,event->interactionPoint());
   return ev;
 
 }
 
 void NLOHepMCFile::analyze(tEventPtr event, long, int, int) {
+  if (event->hasGeometry() && !event->geometryComplete()) return;
 
   Energy eUnit;
   Length lUnit;
@@ -272,11 +277,13 @@ void NLOHepMCFile::dofinish() {
 void NLOHepMCFile::persistentOutput(PersistentOStream & os) const {
   os << _remnantId << _format << _filename 
      << _unitchoice << _geneventPrecision << _eventNumber;
+  os << _geometryDiagnostics;
 }
 
-void NLOHepMCFile::persistentInput(PersistentIStream & is, int) {
+void NLOHepMCFile::persistentInput(PersistentIStream & is, int version) {
   is >> _remnantId >> _format >> _filename 
      >> _unitchoice >> _geneventPrecision >> _eventNumber;
+  if(version>=1) is >> _geometryDiagnostics;
 }
 
 
@@ -286,9 +293,15 @@ void NLOHepMCFile::persistentInput(PersistentIStream & is, int) {
 // arguments are correct (the class name and the name of the dynamically
 // loadable library where the class implementation can be found).
 DescribeClass<NLOHepMCFile,AnalysisHandler>
-  describeHerwigNLOHepMCFile("ThePEG::NLOHepMCFile", "HepMCAnalysis.so");
+  describeHerwigNLOHepMCFile("ThePEG::NLOHepMCFile", "HepMCAnalysis.so",1);
 
 void NLOHepMCFile::Init() {
+  static Switch<NLOHepMCFile,bool> diagnostics
+    ("GeometryDiagnostics","Write interaction point, sampled proper flights and decay decisions as HepMC3 attributes.",
+     &NLOHepMCFile::_geometryDiagnostics,false,false,false);
+  static SwitchOption diagnosticsOn(diagnostics,"On","Write geometry diagnostics.",true);
+  static SwitchOption diagnosticsOff(diagnostics,"Off","Do not write diagnostic attributes.",false);
+
 
   static ClassDocumentation<NLOHepMCFile> documentation
     ("Write hard sub processes or sub process groups to HepMC.");

@@ -37,7 +37,8 @@ public:
   /**
    * Default constructor.
    */
-  DecayHandler() : theMaxLoop(100000), theMaxLifeTime(-1.0*mm), theLifeTimeOption(false) {}
+  DecayHandler() : theMaxLoop(100000), theMaxLifeTime(-1.0*mm), theLifeTimeOption(false),
+    theLimitCylinder(false), theCylinderRadius(2250*mm), theCylinderHalfLength(2500*mm) {}
 
   /**
    * Destructor.
@@ -108,6 +109,19 @@ public:
    */
   bool lifeTimeOption() const { return theLifeTimeOption; }
 
+  bool limitCylinder() const { return theLimitCylinder; }
+  Length cylinderRadius() const { return theCylinderRadius; }
+  Length cylinderHalfLength() const { return theCylinderHalfLength; }
+  void cylinder(bool enabled, Length radius, Length halfLength);
+  bool insideCylinder(const LorentzPoint &) const;
+  /** Test the existing flight. No event veto or random sampling takes place. */
+  bool acceptsDecay(tPPtr parent, const Event * event) const;
+
+protected:
+  void doinit() override;
+  void doinitrun() override;
+  void validateGeometry() const;
+
 protected:
 
   /** @name Clone Methods. */
@@ -143,6 +157,9 @@ private:
    */
   bool theLifeTimeOption;
 
+  bool theLimitCylinder;
+  Length theCylinderRadius, theCylinderHalfLength;
+
 private:
 
   /**
@@ -175,6 +192,7 @@ struct BaseClassTrait<DecayHandler,1>: public ClassTraitsType {
  */
 template <>
 struct ClassTraits<DecayHandler>: public ClassTraitsBase<DecayHandler> {
+  static int version() { return 1; }
   /** Return the class name. */
   static string className() { return "ThePEG::DecayHandler"; }
 };

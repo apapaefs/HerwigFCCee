@@ -19,11 +19,15 @@
 #include "ThePEG/EventRecord/Particle.h"
 #include "ThePEG/EventRecord/Step.h"
 #include "ThePEG/EventRecord/Collision.h"
+#include "ThePEG/EventRecord/Event.h"
+#include "ThePEG/Handlers/StandardEventHandler.h"
+#include "ThePEG/Repository/EventGenerator.h"
 #include "ThePEG/Interface/Switch.h"
 #include "ThePEG/Interface/Parameter.h"
 #include "ThePEG/Interface/ClassDocumentation.h"
 #include "ThePEG/Persistency/PersistentOStream.h"
 #include "ThePEG/Persistency/PersistentIStream.h"
+#include <cmath>
 
 using namespace ThePEG;
 
@@ -58,15 +62,9 @@ handle(EventHandler &, const tPVector & tagged,
 void DecayHandler::
 performDecay(tPPtr parent, Step & s) const {
   parent->synchronizeLifeLength();
-  if ( maxLifeTime() >= ZERO ) {
-    if( ( lifeTimeOption() && parent->lifeLength().tau() > maxLifeTime())||
-	(!lifeTimeOption() && parent->data().cTau()      > maxLifeTime()) ) {
-      parent->setLifeLength(Distance());
-      return;
-    }
-  }
+  if (!acceptsDecay(parent,s.collision() ? s.collision()->event().operator->() : nullptr)) return;
   ParticleVector children = Decayer::DecayParticle(parent, s, maxLoop());
-  for(const auto &child:children) {
+  for (const auto & child : children) {
     child->setLabVertex(parent->labDecayVertex());
     child->synchronizeLifeLength();
   }
@@ -76,15 +74,80 @@ performDecay(tPPtr parent, Step & s) const {
 
 void DecayHandler::persistentOutput(PersistentOStream & os) const {
   os << theMaxLoop << ounit(theMaxLifeTime, mm) << theLifeTimeOption;
+  os << theLimitCylinder << ounit(theCylinderRadius,mm) << ounit(theCylinderHalfLength,mm);
 }
 
-void DecayHandler::persistentInput(PersistentIStream & is, int) {
+void DecayHandler::persistentInput(PersistentIStream & is, int version) {
   is >> theMaxLoop >> iunit(theMaxLifeTime, mm) >> theLifeTimeOption;
+  if (version >= 1)
+    is >> theLimitCylinder >> iunit(theCylinderRadius,mm) >> iunit(theCylinderHalfLength,mm);
+}
+
+void DecayHandler::cylinder(bool enabled, Length radius, Length halfLength) {
+  theLimitCylinder=enabled; theCylinderRadius=radius; theCylinderHalfLength=halfLength;
+  validateGeometry();
+}
+
+void DecayHandler::validateGeometry() const {
+  if (theLimitCylinder && (!(theCylinderRadius>ZERO) || !(theCylinderHalfLength>ZERO) ||
+      !std::isfinite(theCylinderRadius/mm) || !std::isfinite(theCylinderHalfLength/mm)))
+    throw Exception() << "LimitCylinder requires finite positive CylinderRadius and "
+                      << "CylinderHalfLength." << Exception::runerror;
+  if (theLimitCylinder && generator() &&
+      !dynamic_ptr_cast<Ptr<StandardEventHandler>::tcptr>(generator()->eventHandler()))
+    throw Exception() << "LimitCylinder requires StandardEventHandler. "
+                      << "LesHouchesEventHandler/LHE input is unsupported."
+                      << Exception::runerror;
+}
+
+void DecayHandler::doinit() { StepHandler::doinit(); validateGeometry(); }
+void DecayHandler::doinitrun() { StepHandler::doinitrun(); validateGeometry(); }
+
+bool DecayHandler::insideCylinder(const LorentzPoint & point) const {
+  if (!std::isfinite(point.x()/mm) || !std::isfinite(point.y()/mm) ||
+      !std::isfinite(point.z()/mm) || !std::isfinite(point.t()/mm))
+    throw Exception() << "Nonfinite candidate decay vertex." << Exception::eventerror;
+  return std::hypot(point.x()/mm,point.y()/mm)<=theCylinderRadius/mm &&
+         abs(point.z())<=theCylinderHalfLength;
+}
+
+bool DecayHandler::acceptsDecay(tPPtr parent, const Event * event) const {
+  if (parent->decayDisposition()==Particle::OutsideCylinder ||
+      parent->decayDisposition()==Particle::AboveMaxLifeTime) return false;
+  if (maxLifeTime()>=ZERO &&
+      (lifeTimeOption() ? parent->lifeLength().tau() : parent->data().cTau())>maxLifeTime()) {
+    parent->decayDisposition(Particle::AboveMaxLifeTime);
+    return false;
+  }
+  if (theLimitCylinder) {
+    if (!event || !event->hasGeometry())
+      throw Exception() << "LimitCylinder has no laboratory geometry context; "
+                        << "StandardEventHandler is required and LHE is unsupported."
+                        << Exception::runerror;
+    if (!insideCylinder(event->laboratoryPoint(parent->labDecayVertex()))) {
+      parent->decayDisposition(Particle::OutsideCylinder);
+      return false;
+    }
+  }
+  parent->decayDisposition(Particle::DecayAllowed);
+  return true;
 }
 
 ClassDescription<DecayHandler> DecayHandler::initDecayHandler;
 
 void DecayHandler::Init() {
+
+  static Switch<DecayHandler,bool> limitCylinder
+    ("LimitCylinder","Only decay particles whose sampled laboratory decay point is inside the cylinder.",
+     &DecayHandler::theLimitCylinder,false,false,false);
+  static SwitchOption cylinderOn(limitCylinder,"On","Enable the laboratory cylinder.",true);
+  static SwitchOption cylinderOff(limitCylinder,"Off","Disable the laboratory cylinder.",false);
+  static Parameter<DecayHandler,Length> radius
+    ("CylinderRadius","Laboratory cylinder radius in mm; the surface is included.",
+     &DecayHandler::theCylinderRadius,mm,2250*mm,ZERO,ZERO,false,false,Interface::lowerlim);
+  static Parameter<DecayHandler,Length> halfLength
+    ("CylinderHalfLength","Laboratory cylinder half-length in mm; both end surfaces are included.",
+     &DecayHandler::theCylinderHalfLength,mm,2500*mm,ZERO,ZERO,false,false,Interface::lowerlim);
 
   static ClassDocumentation<DecayHandler> documentation
     ("This is the main class handling the decay of unstable particles. Note "

@@ -75,6 +75,18 @@ struct HepMCTraits<HepMC::GenEvent>
 			   HepMC::HeavyIon>
 {
 
+  static void setInteractionPoint(EventT &e,const LorentzPoint &point) {
+    e.add_attribute("geometry_ip_x_mm",std::make_shared<HepMC::DoubleAttribute>(point.x()/mm));
+    e.add_attribute("geometry_ip_y_mm",std::make_shared<HepMC::DoubleAttribute>(point.y()/mm));
+    e.add_attribute("geometry_ip_z_mm",std::make_shared<HepMC::DoubleAttribute>(point.z()/mm));
+    e.add_attribute("geometry_ip_ct_mm",std::make_shared<HepMC::DoubleAttribute>(point.t()/mm));
+  }
+  static void setDecayGeometry(ParticleT &p,double ct,int disposition,bool external) {
+    p.add_attribute("geometry_ctau_mm",std::make_shared<HepMC::DoubleAttribute>(ct));
+    p.add_attribute("geometry_decision",std::make_shared<HepMC::IntAttribute>(disposition));
+    p.add_attribute("geometry_external_lifetime",std::make_shared<HepMC::IntAttribute>(external?1:0));
+  }
+
   /** Create an event object with number \a evno and \a weight. */
   static EventT * newEvent(long evno, double weight,
 			   const map<string,double>& optionalWeights) {

@@ -83,7 +83,7 @@ public:
    */
   static GenEvent * convert(const Event & ev, bool nocopies = false,
 			    Energy eunit = Traits::defaultEnergyUnit(),
-			    Length lunit = Traits::defaultLengthUnit());
+			    Length lunit = Traits::defaultLengthUnit(), bool geometryDiagnostics = false);
 
   /**
    * Convert a ThePEG::Event to a HepMC::GenEvent. The caller supplies
@@ -129,6 +129,7 @@ private:
    * Common init function used by the constructors.
    */
   void init(const Event & ev, bool nocopies);
+  void writeGeometryDiagnostics(const Event & ev);
 
   /**
    * Default constructor is unimplemented and private and should never be used.

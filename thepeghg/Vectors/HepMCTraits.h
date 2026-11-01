@@ -272,6 +272,10 @@ struct HepMCTraitsBase {
     p.set_flow(indx, coline);
   }
 
+  // HepMC2 has no general-purpose attributes. HepMC3 specializes these hooks.
+  static void setInteractionPoint(EventT &,const LorentzPoint &) {}
+  static void setDecayGeometry(ParticleT &,double,int,bool) {}
+
   /** Create a new vertex. */
   static VertexPtrT newVertex() {
     return new VertexT();

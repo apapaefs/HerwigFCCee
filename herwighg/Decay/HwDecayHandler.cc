@@ -23,6 +23,7 @@
 #include "ThePEG/Interface/RefVector.h"
 #include "ThePEG/EventRecord/Step.h"
 #include "ThePEG/EventRecord/Collision.h"
+#include "ThePEG/EventRecord/Event.h"
 #include "ThePEG/Persistency/PersistentOStream.h"
 #include "ThePEG/Persistency/PersistentIStream.h"
 #include "DecayIntegrator.h"
@@ -65,21 +66,22 @@ handle(EventHandler &, const tPVector & tagged,
 // perform decay method including modifications for spin correlations
 // and for the decayer to specify intermediate decay products
 void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
-  if(parent->decayDisposition()==Particle::AboveMaxLifeTime) { develop(parent); return; }
-  parent->synchronizeLifeLength();
+  if(parent->decayDisposition()==Particle::OutsideCylinder ||
+     parent->decayDisposition()==Particle::AboveMaxLifeTime) { develop(parent); return; }
+  const Event * event=s.collision() ? s.collision()->event().operator->() : nullptr;
   long ntry = 0;
   tcSpinPtr hwspin;
   tcMixedParticleDataPtr 
     mixdata=dynamic_ptr_cast<tcMixedParticleDataPtr>(parent->dataPtr());
   if(mixdata) {
     pair<bool,Length> mixing = mixdata->generateLifeTime();
-    parent->properLifeLength(mixing.second);
-    if(maxLifeTime()>=ZERO &&
-       (lifeTimeOption() ? mixing.second : parent->data().cTau())>maxLifeTime()) {
-      parent->decayDisposition(Particle::AboveMaxLifeTime);
-      develop(parent); return;
-    }
+    parent->setLifeLength(Lorentz5Distance(mixing.second,
+                              parent->momentum().vect()*(mixing.second/parent->mass())));
+    parent->synchronizeLifeLength();
+    if(!acceptsDecay(parent,event)) { develop(parent); return; }
     develop(parent);
+    // This node records a flavour transition at the production point. Setting
+    // only its spatial flight leaves a spurious proper-time interval.
     parent->properLifeLength(ZERO);
     PPtr newparent;
     if(mixing.first) {
@@ -96,16 +98,13 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
 				(mixing.second/parent->mass()));
     newparent->setLifeLength(lifeLength);
     newparent->synchronizeLifeLength();
+    newparent->decayDisposition(Particle::DecayAllowed);
     s.addDecayProduct(parent, newparent);
     parent = newparent;
   }
-  else if ( maxLifeTime() >= ZERO ) {
-    if( ( lifeTimeOption() && parent->lifeLength().tau() > maxLifeTime())||
-	(!lifeTimeOption() && parent->data().cTau()      > maxLifeTime()) ) {
-      parent->decayDisposition(Particle::AboveMaxLifeTime);
-      develop(parent);
-      return;
-    }
+  else {
+    parent->synchronizeLifeLength();
+    if(!acceptsDecay(parent,event)) { develop(parent); return; }
   }
   while ( true ) {
     // exit if fails
@@ -128,7 +127,7 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
 					    << " in HwDecayHandler::performDecay" 
 					    << Exception::eventerror;
     try {
-      ParticleVector children = dm->decayer()->decay(*dm, *parent);
+      ParticleVector children = dm->decayer()->decay(*dm,*parent);
       if(children.empty()) continue;
       assert(parent->children().empty());
       // generate radiation in the decay

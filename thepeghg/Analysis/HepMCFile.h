@@ -192,6 +192,7 @@ private:
    * Choice of output precision in GenEvent format
    */
   unsigned int _geneventPrecision;
+  bool _geometryDiagnostics=false;
 
   /**
    * Choice of adding Heavy Ion information.
@@ -223,6 +224,7 @@ struct ClassTraits<HepMCFile>
   : public ClassTraitsBase<HepMCFile> {
   /** Return a platform-independent class name */
   static string className() { return "ThePEG::HepMCFile"; }
+  static int version() { return 1; }
   /** Return the name(s) of the shared library (or libraries) be loaded to get
    *  access to the HepMCFile class and any other class on which it depends
    *  (except the base class). */

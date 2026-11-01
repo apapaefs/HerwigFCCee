@@ -49,6 +49,8 @@ StepPtr Step::clone() const {
 }
 
 void Step::rebind(const EventTranslationMap & trans) {
+  theCollision=trans.translate(theCollision);
+  for (auto & subprocess : theSubProcesses) subprocess=trans.translate(subprocess);
   ParticleSet::const_iterator pit;
   allParticles.clear();
   for ( pit = theParticles.begin(); pit != theParticles.end(); ++pit )

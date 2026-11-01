@@ -78,6 +78,7 @@ void Collision::rebind(const EventTranslationMap & trans) {
 void Collision::transform(const LorentzRotation & r) {
   EventRecordDetail::transformParticles(allParticles, theSubProcesses.begin(),
                                        theSubProcesses.end(), r);
+  theVertex.transform(r);
 }
 
 void Collision::addStep(tStepPtr s) {

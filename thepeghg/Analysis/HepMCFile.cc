@@ -39,7 +39,7 @@ HepMCFile::HepMCFile(const HepMCFile & x)
     _ttreename(x._ttreename),_tbranchname(x._tbranchname),
 #endif
     _hepmcio(), _hepmcdump(), _unitchoice(x._unitchoice), 
-    _geneventPrecision(x._geneventPrecision) {}
+    _geneventPrecision(x._geneventPrecision), _geometryDiagnostics(x._geometryDiagnostics), _addHI(x._addHI) {}
 
 IBPtr HepMCFile::clone() const {
   return new_ptr(*this);
@@ -135,6 +135,7 @@ void HepMCFile::dofinish() {
 }
 
 void HepMCFile::analyze(tEventPtr event, long, int, int) {
+  if (event->hasGeometry() && !event->geometryComplete()) return;
   if (event->number() > _eventNumber) return;
 
   Energy eUnit;
@@ -158,7 +159,7 @@ void HepMCFile::analyze(tEventPtr event, long, int, int) {
 
   HepMC::GenEvent * hepmc 
     = HepMCConverter<HepMC::GenEvent>::convert(*event, false,
-					       eUnit, lUnit);
+					       eUnit, lUnit, _geometryDiagnostics);
 
   const LorentzPoint v1 = event->incoming().first->vertex();
   const LorentzPoint v2 = event->incoming().second->vertex();  
@@ -198,11 +199,13 @@ void HepMCFile::analyze(tEventPtr event, long, int, int) {
 void HepMCFile::persistentOutput(PersistentOStream & os) const {
   os << _eventNumber << _format << _filename 
      << _unitchoice << _geneventPrecision << _addHI;
+  os << _geometryDiagnostics;
 }
 
-void HepMCFile::persistentInput(PersistentIStream & is, int) {
+void HepMCFile::persistentInput(PersistentIStream & is, int version) {
   is >> _eventNumber >> _format >> _filename 
      >> _unitchoice >> _geneventPrecision >> _addHI;
+  if(version>=1) is >> _geometryDiagnostics;
 }
 
 
@@ -210,6 +213,12 @@ ClassDescription<HepMCFile> HepMCFile::initHepMCFile;
 // Definition of the static class description member.
 
 void HepMCFile::Init() {
+  static Switch<HepMCFile,bool> diagnostics
+    ("GeometryDiagnostics","Write interaction point, sampled proper flights and decay decisions as HepMC3 attributes.",
+     &HepMCFile::_geometryDiagnostics,false,false,false);
+  static SwitchOption diagnosticsOn(diagnostics,"On","Write geometry diagnostics.",true);
+  static SwitchOption diagnosticsOff(diagnostics,"Off","Do not write diagnostic attributes.",false);
+
 
   static ClassDocumentation<HepMCFile> documentation
     ("This analysis handler will output the event record in HepMC format.");

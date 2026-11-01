@@ -145,7 +145,7 @@ private:
 template <>
 struct BaseClassTrait<SubProcessGroup,1>: public ClassTraitsType {
   /** Typedef of the first base class of SubProcessGroup. */
-  typedef EventRecordBase NthBase;
+  typedef SubProcess NthBase;
 };
 
 /** This template specialization informs ThePEG about the name of
@@ -154,6 +154,7 @@ template <>
 struct ClassTraits<SubProcessGroup>: public ClassTraitsBase<SubProcessGroup> {
   /** Return a platform-independent class name */
   static string className() { return "ThePEG::SubProcessGroup"; }
+  static int version() { return 1; }
   /** Create a SubProcessGroup object. */
   static TPtr create() { return TPtr::Create(SubProcessGroup()); }
 };
