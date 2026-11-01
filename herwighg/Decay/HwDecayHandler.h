@@ -142,6 +142,8 @@ protected:
       hwspin->develop();
   }
 
+  void discardDecay(tPPtr particle) const;
+
 private:
 
   /**

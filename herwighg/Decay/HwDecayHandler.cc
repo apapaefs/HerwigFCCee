@@ -174,6 +174,10 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
 // method to add an intermediate which has already been decayed to the event record
 void HwDecayHandler::addDecayedParticle(tPPtr parent, Step & s) const {
   parent->synchronizeLifeLength();
+  if(!acceptsDecay(parent,s.collision() ? s.collision()->event().operator->() : nullptr)) {
+    discardDecay(parent);
+    return;
+  }
   for ( int i = 0, N = parent->children().size(); i < N; ++i ) {
     parent->children()[i]->setLabVertex(parent->labDecayVertex());
     parent->children()[i]->synchronizeLifeLength();
@@ -182,8 +186,7 @@ void HwDecayHandler::addDecayedParticle(tPPtr parent, Step & s) const {
   parent->scale(ZERO);
   for ( int i = 0, N = parent->children().size(); i < N; ++i ) {
     if((parent->children()[i])->decayed()) {
-      for(unsigned int ix=0;ix<(parent->children()[i])->children().size();++ix)
-	addDecayedParticle(parent->children()[i],s);
+      addDecayedParticle(parent->children()[i],s);
     }
     else if ( ! parent->children()[i]->data().stable() &&
 	      _excluded.find( parent->children()[i]->dataPtr() ) == _excluded.end() ) {
@@ -194,6 +197,23 @@ void HwDecayHandler::addDecayedParticle(tPPtr parent, Step & s) const {
     }
   }
   return;
+}
+
+void HwDecayHandler::discardDecay(tPPtr parent) const {
+  // This tree has not yet been registered: unlink both ends of every edge.
+  while(!parent->children().empty()) {
+    PPtr child=parent->children().back();
+    discardDecay(child);
+    parent->abandonChild(child);
+  }
+  parent->decayMode(tDMPtr());
+  if(parent->spinInfo()) {
+    auto spin=parent->spinInfo();
+    spin->decayVertex(VertexPtr());
+    spin->undecay();
+    spin->DMatrix()=RhoDMatrix(spin->iSpin());
+  }
+  develop(parent);
 }
 
 void HwDecayHandler::persistentOutput(PersistentOStream & os) const {
