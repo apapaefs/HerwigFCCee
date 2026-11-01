@@ -655,11 +655,18 @@ void ShowerTree::clear() {
     if(link.second.first) link.second.second = link.second.first->progenitor();
   // if a decay
   if(!_wasHard) {
-    ShowerParticlePtr orig=_incomingLines.begin()->first->progenitor();
-    orig->set5Momentum(_incomingLines.begin()->first->copy()->momentum());
+    ShowerProgenitorPtr in=_incomingLines.begin()->first;
+    ShowerParticlePtr orig=in->progenitor();
     ParticleVector children=orig->children();
     for(unsigned int ix=0;ix<children.size();++ix) orig->abandonChild(children[ix]);
-    _incomingLines.begin()->first->reconstructed(ShowerProgenitor::notReconstructed);
+    // the progenitor must be on the same new colour lines as the copy
+    ShowerParticlePtr temp=
+      new_ptr(ShowerParticle(*in->copy(),orig->perturbative(),orig->isFinalState()));
+    fixColour(temp);
+    in->hasEmitted(false);
+    in->progenitor(temp);
+    _incomingLines[in]=temp;
+    in->reconstructed(ShowerProgenitor::notReconstructed);
   }
   // if a hard process
   else {
