@@ -445,7 +445,8 @@ EventPtr StandardEventHandler::generateEvent() {
       currentEvent(new_ptr(Event(lastParticles(), this, generator()->runName(),
 				 generator()->currentEventNumber(), weight)));
 
-      currentEvent()->geometry(currentEventBoost(),LorentzPoint());
+      currentEvent()->geometry(currentEventBoost(),theVertexDistribution ?
+                               theVertexDistribution->sample() : LorentzPoint());
 
       performCollision();
       if ( !currentCollision() ) throw Veto();
@@ -475,7 +476,7 @@ EventPtr StandardEventHandler::continueEvent() {
     << "from the setup phase before it was used." << Exception::maybeabort;
   try {
     continueCollision();
-    if(currentEvent() && empty()) currentEvent()->finishGeometry();
+    if (currentEvent() && empty()) currentEvent()->finishGeometry();
   }
   catch (Veto) {
     reject(currentEvent()->weight());
@@ -520,6 +521,10 @@ void StandardEventHandler::setIncomingB(PDPtr p) {
 }
 
 void StandardEventHandler::Init() {
+  static Reference<StandardEventHandler,GaussianVertexDistribution> vertexDistribution
+    ("VertexDistribution","Optional laboratory interaction point distribution. "
+     "A null reference fixes the origin and consumes no random numbers. LHE input is unsupported.",
+     &StandardEventHandler::theVertexDistribution,false,false,true,true,true);
 
   static ClassDocumentation<StandardEventHandler> documentation
     ("This is the standard event handler to generate hard sub-processes "
@@ -593,10 +598,12 @@ void StandardEventHandler::Init() {
 void StandardEventHandler::persistentOutput(PersistentOStream & os) const {
   os << theIncomingA << theIncomingB << theSubProcesses << theCuts << collisionCuts
      << theXCombs << theMaxDims << theSampler << theLumiDim << xSecStats;
+  os << theVertexDistribution;
 }
 
-void StandardEventHandler::persistentInput(PersistentIStream & is, int) {
+void StandardEventHandler::persistentInput(PersistentIStream & is, int version) {
   is >> theIncomingA >> theIncomingB >> theSubProcesses >> theCuts >> collisionCuts
      >> theXCombs >> theMaxDims >> theSampler >> theLumiDim >> xSecStats;
+  if (version >= 1) is >> theVertexDistribution;
 }
 

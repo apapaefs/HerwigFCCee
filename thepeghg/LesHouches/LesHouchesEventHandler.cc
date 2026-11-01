@@ -15,6 +15,7 @@
 #include "LesHouchesReader.h"
 #include "ThePEG/Interface/ClassDocumentation.h"
 #include "ThePEG/Interface/RefVector.h"
+#include "ThePEG/Interface/Reference.h"
 #include "ThePEG/Interface/Switch.h"
 #include "ThePEG/Interface/Parameter.h"
 #include "ThePEG/Repository/Repository.h"
@@ -51,6 +52,10 @@ IBPtr LesHouchesEventHandler::fullclone() const {
 void LesHouchesEventHandler::doinit() {
 
   EventHandler::doinit();
+  if(theUnsupportedVertexDistribution)
+    throw Exception() << "VertexDistribution is unsupported for LesHouchesEventHandler/LHE input; "
+                      << "use StandardEventHandler or apply vertex smearing downstream."
+                      << Exception::runerror;
   
   for ( int i = 0, N = readers().size(); i < N; ++i ) {
     readers()[i]->init();
@@ -521,13 +526,14 @@ int LesHouchesEventHandler::ntriesinternal() const {
 void LesHouchesEventHandler::persistentOutput(PersistentOStream & os) const {
   os << stats << histStats << theReaders << theSelector
      << oenum(theWeightOption) << theUnitTolerance << theCurrentReader << warnPNum
-     << theNormWeight << UseLHEEvent;
+     << theNormWeight << UseLHEEvent << theUnsupportedVertexDistribution;
 }
 
-void LesHouchesEventHandler::persistentInput(PersistentIStream & is, int) {
+void LesHouchesEventHandler::persistentInput(PersistentIStream & is, int version) {
   is >> stats >> histStats >> theReaders >> theSelector
      >> ienum(theWeightOption) >> theUnitTolerance >> theCurrentReader >> warnPNum
      >> theNormWeight >> UseLHEEvent;
+  if(version>=1) is >> theUnsupportedVertexDistribution;
 }
 
 ClassDescription<LesHouchesEventHandler>
@@ -540,6 +546,10 @@ void LesHouchesEventHandler::setUnitTolerance(double x) {
 }
 
 void LesHouchesEventHandler::Init() {
+  static Reference<LesHouchesEventHandler,GaussianVertexDistribution> vertex
+    ("VertexDistribution","Unsupported for LHE input: initialization fails if set.",
+     &LesHouchesEventHandler::theUnsupportedVertexDistribution,false,false,true,true,true);
+
 
   static ClassDocumentation<LesHouchesEventHandler> documentation
     ("This is the main class administrating the selection of hard "

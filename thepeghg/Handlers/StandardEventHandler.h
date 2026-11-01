@@ -18,6 +18,7 @@
 #include "ThePEG/MatrixElement/MEBase.fh"
 #include "SubProcessHandler.fh"
 #include "StandardXComb.fh"
+#include "GaussianVertexDistribution.h"
 #include "StandardEventHandler.fh"
 #include "ThePEG/Utilities/XSecStat.h"
 #include <fstream>
@@ -383,6 +384,7 @@ private:
    */
 
   PDPtr theIncomingA;
+  Ptr<GaussianVertexDistribution>::pointer theVertexDistribution;
   /**
    * The second of the incoming particle types.
    */
@@ -498,6 +500,7 @@ struct BaseClassTrait<StandardEventHandler,1>: public ClassTraitsType {
 template <>
 struct ClassTraits<StandardEventHandler>
   : public ClassTraitsBase<StandardEventHandler> {
+  static int version() { return 1; }
   /**
    * Return the class name.
    */

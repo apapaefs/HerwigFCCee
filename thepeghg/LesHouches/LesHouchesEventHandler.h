@@ -13,6 +13,7 @@
 //
 
 #include "ThePEG/Handlers/EventHandler.h"
+#include "ThePEG/Handlers/GaussianVertexDistribution.h"
 #include "LesHouchesEventHandler.fh"
 #include "LesHouchesReader.fh"
 #include "ThePEG/Utilities/CompSelector.h"
@@ -437,6 +438,8 @@ private:
    * The assignment operator is private and must never be called.
    * In fact, it should not even be implemented.
    */
+  Ptr<GaussianVertexDistribution>::pointer theUnsupportedVertexDistribution;
+
   LesHouchesEventHandler & operator=(const LesHouchesEventHandler &) = delete;
 
 };
@@ -466,6 +469,7 @@ struct ClassTraits<LesHouchesEventHandler>
   : public ClassTraitsBase<LesHouchesEventHandler> {
   /** Return a platform-independent class name */
   static string className() { return "ThePEG::LesHouchesEventHandler"; }
+  static int version() { return 1; }
   /** Return the name of the shared library be loaded to get access to
    *  the LesHouchesEventHandler class and every other class it uses
    *  (except the base class). */
