@@ -1,0 +1,8 @@
+# -*- ThePEG-repository -*-
+##################################################
+# select the analyses
+##################################################
+insert /Herwig/Analysis/Rivet:Analyses 0 CDF_1988_I263320
+insert /Herwig/Analysis/Rivet:Analyses 0 CDF_1990_I283352
+insert /Herwig/Analysis/Rivet:Analyses 0 CDF_2002_I567774
+insert /Herwig/Analysis/Rivet:Analyses 0 CDF_2004_I647490

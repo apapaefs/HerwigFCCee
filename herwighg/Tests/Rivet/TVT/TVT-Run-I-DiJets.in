@@ -1,0 +1,8 @@
+# -*- ThePEG-repository -*-
+##################################################
+# select the analyses
+##################################################
+# run I CDF di jet angles
+insert /Herwig/Analysis/Rivet:Analyses 0 CDF_1996_I423414
+# run I CDF di jet
+insert /Herwig/Analysis/Rivet:Analyses 0 CDF_2000_I511377

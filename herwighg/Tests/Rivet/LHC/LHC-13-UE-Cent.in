@@ -1,0 +1,4 @@
+# -*- ThePEG-repository -*-
+insert /Herwig/Analysis/Rivet:PreLoad 0 Rivet-LHC-13-Cent.yoda
+insert /Herwig/Analysis/Rivet:Analyses 0 ALICE_2019_I1723697:beam=pp:cent=GEN
+

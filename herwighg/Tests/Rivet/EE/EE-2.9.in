@@ -1,0 +1,15 @@
+# -*- ThePEG-repository -*-
+##################################################
+# LEP physics parameters (override defaults) 
+##################################################
+set /Herwig/Generators/EventGenerator:EventHandler:LuminosityFunction:Energy 2.9
+set /Herwig/Generators/EventGenerator:EventHandler:Cuts:MHatMin 2.8
+##################################################
+# select the analyses
+##################################################
+#  Validated
+##################################################
+# BES eta spectra
+insert /Herwig/Analysis/Rivet:Analyses 0 BESIII_2024_I2753516
+# BES pi+/- K+- spectra
+insert /Herwig/Analysis/Rivet:Analyses 0 BESIII_2026_I2893764

@@ -1,0 +1,10 @@
+# -*- ThePEG-repository -*-
+##################################################
+# LEP physics parameters (override defaults) 
+##################################################
+set /Herwig/Generators/EventGenerator:EventHandler:LuminosityFunction:Energy 195.8.
+##################################################
+# select the analyses 
+##################################################
+# OPAL charge particles
+insert /Herwig/Analysis/Rivet:Analyses 0 OPAL_2007_I734955

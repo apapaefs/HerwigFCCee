@@ -1,0 +1,7 @@
+# -*- ThePEG-repository -*-
+##################################################
+# select the analyses
+##################################################
+# General analysis
+insert /Herwig/Analysis/Rivet:Analyses 0 MC_HJETS
+insert /Herwig/Analysis/Rivet:Analyses 0 MC_HINC

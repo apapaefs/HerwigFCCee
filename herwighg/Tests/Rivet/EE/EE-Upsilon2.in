@@ -1,0 +1,33 @@
+# -*- ThePEG-repository -*-
+create ThePEG::LuminosityFunction /Herwig/EventHandlers/BFactoryLuminosity
+set /Herwig/EventHandlers/BFactoryLuminosity:BeamEMaxA 5.01163*GeV
+set /Herwig/EventHandlers/BFactoryLuminosity:BeamEMaxB 5.01163*GeV
+set /Herwig/Generators/EventGenerator:EventHandler:Cuts:MHatMin 10.02
+set /Herwig/Particles/e-:PDF /Herwig/Partons/NoPDF
+set /Herwig/Particles/e+:PDF /Herwig/Partons/NoPDF
+set /Herwig/Generators/EventGenerator:EventHandler:LuminosityFunction /Herwig/EventHandlers/BFactoryLuminosity
+create Herwig::MEee2VectorMeson /Herwig/MatrixElements/MEUpsilon HwMELepton.so
+set /Herwig/MatrixElements/MEUpsilon:VectorMeson /Herwig/Particles/Upsilon(2S)
+set /Herwig/MatrixElements/MEUpsilon:Coupling 62.72911
+set /Herwig/MatrixElements/SubProcess:MatrixElements 0 /Herwig/MatrixElements/MEUpsilon
+# BELLE charm hadron production
+insert /Herwig/Analysis/Rivet:Analyses 0 ARGUS_1993_I342061
+insert /Herwig/Analysis/Rivet:Analyses 0 ARGUS_1990_I278933
+insert /Herwig/Analysis/Rivet:Analyses 0 ARGUS_1989_I262551
+insert /Herwig/Analysis/Rivet:Analyses 0 ARGUS_1988_I251097
+# LENA thrust and mult
+insert /Herwig/Analysis/Rivet:Analyses 0 LENA_1981_I164397
+# Upsilon 2S -> Upsilon 1S pi+pi-
+insert /Herwig/Analysis/Rivet:Analyses 0 CUSB_1984_I199809
+insert /Herwig/Analysis/Rivet:Analyses 0 CLEOII_1998_I467642
+insert /Herwig/Analysis/Rivet:Analyses 0 BELLE_2017_I1610301
+insert /Herwig/Analysis/Rivet:Analyses 0 ARGUS_1987_I238071
+# BABAR anti-deuteron
+insert /Herwig/Analysis/Rivet:Analyses 0 BABAR_2014_I1286317
+#  BELLE chi_c1
+insert /Herwig/Analysis/Rivet:Analyses 0 BELLE_2017_I1499706
+#  BABAR Upsilon(1s) -> gamma pi+ pi-, gamma K+ K-
+insert /Herwig/Analysis/Rivet:Analyses 0 BABAR_2018_I1667191
+# photon spectrtum
+insert /Herwig/Analysis/Rivet:Analyses 0 CLEOIII_2006_I701217
+insert /Herwig/Analysis/Rivet:Analyses 0 CUSB_1984_I204307

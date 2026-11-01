@@ -1,0 +1,8 @@
+# -*- ThePEG-repository -*-
+##################################################
+# select the analyses
+##################################################
+# CDF Run II diphotons
+insert /Herwig/Analysis/Rivet:Analyses 0 CDF_2005_I667384
+# D0 Run II diphotons
+insert /Herwig/Analysis/Rivet:Analyses 0 D0_2010_I846997

@@ -1,0 +1,15 @@
+# -*- ThePEG-repository -*-
+##################################################
+# select the analyses
+##################################################
+# underlying event forward rapidities
+insert /Herwig/Analysis/Rivet:Analyses 0 CMS_2013_I1218372
+# underlying event
+insert /Herwig/Analysis/Rivet:Analyses 0 CMS_2015_I1385107
+# ALICE neutral pion cross section
+insert /Herwig/Analysis/Rivet:Analyses 0 ALICE_2017_I1512110
+insert /Herwig/Analysis/Rivet:Analyses 0 ALICE_2012_I1181770
+# ALICE rho production
+insert /Herwig/Analysis/Rivet:Analyses 0 ALICE_2019_I1672860
+# LHCf pi0
+insert /Herwig/Analysis/Rivet:Analyses 0 LHCF_2016_I1385877
