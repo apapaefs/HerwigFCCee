@@ -65,6 +65,7 @@ handle(EventHandler &, const tPVector & tagged,
 // perform decay method including modifications for spin correlations
 // and for the decayer to specify intermediate decay products
 void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
+  parent->synchronizeLifeLength();
   long ntry = 0;
   tcSpinPtr hwspin;
   tcMixedParticleDataPtr 
@@ -72,7 +73,7 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
   if(mixdata) {
     pair<bool,Length> mixing = mixdata->generateLifeTime();
     develop(parent);
-    parent->setLifeLength(Distance());
+    parent->properLifeLength(ZERO);
     PPtr newparent;
     if(mixing.first) {
       newparent = parent->dataPtr()->CC()->
@@ -87,6 +88,7 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
 				parent->momentum().vect()*
 				(mixing.second/parent->mass()));
     newparent->setLifeLength(lifeLength);
+    newparent->synchronizeLifeLength();
     s.addDecayProduct(parent, newparent);
     parent = newparent;
   }
@@ -126,11 +128,13 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
       tDecayIntegratorPtr hwdec=dynamic_ptr_cast<tDecayIntegratorPtr>(dm->decayer());
       if (hwdec && hwdec->canGeneratePhotons())
 	children = hwdec->generatePhotons(*parent,children);
+      parent->synchronizeLifeLength();
       // set up parent
       parent->decayMode(dm);
       // add children
       for ( int i = 0, N = children.size(); i < N; ++i ) {
 	children[i]->setLabVertex(parent->labDecayVertex());
+	children[i]->synchronizeLifeLength();
 	if ( !s.addDecayProduct(parent, children[i]) ) 
 	  throw Exception() << "Failed to add child " 
 			    << children[i]->PDGName() 
@@ -163,8 +167,10 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
 
 // method to add an intermediate which has already been decayed to the event record
 void HwDecayHandler::addDecayedParticle(tPPtr parent, Step & s) const {
+  parent->synchronizeLifeLength();
   for ( int i = 0, N = parent->children().size(); i < N; ++i ) {
     parent->children()[i]->setLabVertex(parent->labDecayVertex());
+    parent->children()[i]->synchronizeLifeLength();
     s.addDecayProduct(parent->children()[i]);
   }
   parent->scale(ZERO);

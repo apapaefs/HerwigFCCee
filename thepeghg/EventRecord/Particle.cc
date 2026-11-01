@@ -23,6 +23,7 @@
 #include <iostream>
 #include <iomanip>
 #include <cctype>
+#include <cmath>
 
 #ifdef ThePEG_TEMPLATES_IN_CC_FILE
 #include "Particle.tcc"
@@ -37,6 +38,8 @@ Particle::ParticleRep::ParticleRep(const ParticleRep & p)
     theLifeLength(p.theLifeLength), theScale(p.theScale),
     theVetoScale(p.theVetoScale), theNumber(p.theNumber), 
     theExtraInfo(p.theExtraInfo.size()) {
+  theDecayDisposition = p.theDecayDisposition;
+  theExternalLifeTime = p.theExternalLifeTime;
   if ( p.theColourInfo )
     theColourInfo = dynamic_ptr_cast<CBPtr>(p.theColourInfo->clone());
   if ( p.theSpinInfo )
@@ -83,6 +86,35 @@ void Particle::initFull() {
 				max(mass(), Constants::epsilon*GeV))));
     theRep->theLifeLength.rescaleEnergy();
   }
+}
+
+void Particle::properLifeLength(Length ct, bool external) {
+  if (!hasRep()) theRep=new ParticleRep;
+  rep().theLifeLength.setTau(ct);
+  rep().theExternalLifeTime=external;
+  synchronizeLifeLength();
+}
+
+void Particle::synchronizeLifeLength() {
+  if (!hasRep()) return;
+  const Length ct = rep().theLifeLength.tau();
+  if (!std::isfinite(ct/mm) || ct < ZERO)
+    throw Exception() << "Invalid sampled proper flight for " << id()
+                      << Exception::eventerror;
+  if (ct == ZERO) {
+    rep().theLifeLength = Lorentz5Distance();
+    return;
+  }
+  if (!(mass() > ZERO) || !std::isfinite(mass()/GeV) ||
+      !std::isfinite(momentum().e()/GeV) ||
+      !std::isfinite(momentum().x()/GeV) ||
+      !std::isfinite(momentum().y()/GeV) ||
+      !std::isfinite(momentum().z()/GeV))
+    throw Exception() << "Cannot construct a nonzero proper flight for particle "
+                      << id() << " with invalid momentum/mass."
+                      << Exception::eventerror;
+  rep().theLifeLength = Lorentz5Distance(ct, momentum().vect()*(ct/mass()));
+  rep().theLifeLength.setT(momentum().e()*(ct/mass()));
 }
 
 PPtr Particle::clone() const {
@@ -508,9 +540,10 @@ void Particle::persistentOutput(PersistentOStream & os) const {
      << ounit(rep().theScale, GeV2) << ounit(rep().theVetoScale, GeV2) 
      << rep().theNumber << rep().theDecayMode
      << rep().theColourInfo << rep().theSpinInfo << rep().theExtraInfo;
+  os << rep().theDecayDisposition << rep().theExternalLifeTime;
 }
 
-void Particle::persistentInput(PersistentIStream & is, int) {
+void Particle::persistentInput(PersistentIStream & is, int version) {
   bool readRep;
   EventConfig::getParticleData(is, theData);
   is >> iunit(theMomentum, GeV) >> theStatus >> readRep;
@@ -523,6 +556,7 @@ void Particle::persistentInput(PersistentIStream & is, int) {
      >> iunit(rep().theScale, GeV2) >> iunit(rep().theVetoScale, GeV2) 
      >> rep().theNumber >> rep().theDecayMode
      >> rep().theColourInfo >> rep().theSpinInfo >> rep().theExtraInfo;
+  if (version >= 1) is >> rep().theDecayDisposition >> rep().theExternalLifeTime;
 }
 
 ClassDescription<Particle> Particle::initParticle;

@@ -491,6 +491,21 @@ public:
    */
   Time lifeTime() const { return lifeLength().m(); }
 
+  /** Rebuild the flight from its sampled proper length and current momentum.
+   * Does not initialize the representation or draw a lifetime. */
+  void synchronizeLifeLength();
+  /** Set an authoritative proper flight without lazy lifetime sampling. */
+  void properLifeLength(Length ct, bool external=false);
+
+  enum DecayDisposition { DecayUnchecked=0, DecayAllowed=1,
+                          OutsideCylinder=2, AboveMaxLifeTime=3 };
+  DecayDisposition decayDisposition() const {
+    return hasRep() ? DecayDisposition(rep().theDecayDisposition) : DecayUnchecked;
+  }
+  void decayDisposition(DecayDisposition value) { rep().theDecayDisposition=value; }
+  bool externalLifeTime() const { return hasRep() && rep().theExternalLifeTime; }
+  void externalLifeTime(bool value) { rep().theExternalLifeTime=value; }
+
   //@}
 
   /** @name Functions for (Lorentz) transformations. */
@@ -1087,6 +1102,9 @@ public:
      */
     Lorentz5Distance theLifeLength;
 
+    int theDecayDisposition = 0;
+    bool theExternalLifeTime = false;
+
     /**
      * the resolution scale.
      */
@@ -1175,6 +1193,7 @@ struct BaseClassTrait<Particle,1>: public ClassTraitsType {
  *  the Particle class and how to create it. */
 template <>
 struct ClassTraits<Particle>: public ClassTraitsBase<Particle> {
+  static int version() { return 1; }
   /** Return a platform-independent class name */
   static string className() { return "ThePEG::Particle"; }
   /** Create a Particle object. */

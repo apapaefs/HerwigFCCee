@@ -57,6 +57,7 @@ handle(EventHandler &, const tPVector & tagged,
 
 void DecayHandler::
 performDecay(tPPtr parent, Step & s) const {
+  parent->synchronizeLifeLength();
   if ( maxLifeTime() >= ZERO ) {
     if( ( lifeTimeOption() && parent->lifeLength().tau() > maxLifeTime())||
 	(!lifeTimeOption() && parent->data().cTau()      > maxLifeTime()) ) {
@@ -65,6 +66,10 @@ performDecay(tPPtr parent, Step & s) const {
     }
   }
   ParticleVector children = Decayer::DecayParticle(parent, s, maxLoop());
+  for(const auto &child:children) {
+    child->setLabVertex(parent->labDecayVertex());
+    child->synchronizeLifeLength();
+  }
   for ( int i = 0, N = children.size(); i < N; ++i )
     if ( !children[i]->data().stable() ) performDecay(children[i], s);
 }
