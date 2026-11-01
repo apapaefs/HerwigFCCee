@@ -21,9 +21,19 @@ The first commit is the unmodified upstream code, so comparing a later commit wi
 
 ## Build
 
-Build and install ThePEG first, then build Herwig against it. `configure` is not tracked, so run `autoreconf` in each tree first. If your libtool version differs from the one tracked in ThePEG, this also updates `thepeghg/Config/ltmain.sh` and `thepeghg/m4/lt*.m4`, and those files then show as modified.
+You need GNU Autotools with libtool, `gengetopt`, C++17 and Fortran compilers, GSL, Boost, LHAPDF, HepMC3 and FastJet. EvtGen and Pythia 8 are optional.
 
-In these commands, `PREFIX` is the install location and `DEPS` is the prefix that holds LHAPDF, FastJet, HepMC3, EvtGen and Pythia 8.
+Build and install ThePEG first, then build Herwig against it. `configure` is not tracked, so run `autoreconf` in each tree first. If your libtool version differs from the one tracked in ThePEG, this also updates `thepeghg/Config/ltmain.sh` and the libtool macros in `thepeghg/m4`, and those files then show as modified.
+
+In these commands, `PREFIX` is the install location, `DEPS` is the prefix that holds LHAPDF, FastJet, HepMC3, EvtGen and Pythia 8, and `BOOST_ROOT` and `GSL_ROOT` are the prefixes of Boost and GSL. `LDFLAGS` gives the plugins a run-time path to the libraries in `DEPS`.
+
+On macOS with EvtGen, the Herwig install step adds `$PREFIX/lib` to the EvtGen plugin as another run-time path. The plugin needs `-headerpad_max_install_names` to leave room for it, and `DEPS` and `PREFIX` must be different directories, because `install_name_tool` refuses a duplicate path.
+
+```bash
+export LDFLAGS="-Wl,-rpath,$DEPS/lib"
+# On macOS only:
+export LDFLAGS="$LDFLAGS -Wl,-headerpad_max_install_names"
+```
 
 ```bash
 (cd thepeghg && autoreconf -fi)
@@ -50,7 +60,16 @@ cd ../..
 
 EvtGen and Pythia are optional: use `--without-evtgen --without-pythia` to leave them out.
 
-The code has been tested on macOS arm64 with GCC 16, using `CXXFLAGS="-O2 -std=c++17 -Wno-deprecated-declarations -Wno-deprecated-copy"` and `FCFLAGS="-O2 -ffixed-line-length-none -fallow-argument-mismatch -fno-range-check"`.
+The code has been tested on macOS arm64 with GCC 16 and Python 3.14, using these settings:
+
+```bash
+export CC=gcc-16 CXX=g++-16 FC=gfortran-16
+export CFLAGS="-O2"
+export CXXFLAGS="-O2 -std=c++17 -Wno-deprecated-declarations -Wno-deprecated-copy"
+export FCFLAGS="-O2 -ffixed-line-length-none -fallow-argument-mismatch -fno-range-check"
+export FFLAGS="$FCFLAGS"
+export PYTHON=python3.14
+```
 
 This code uses ThePEG ABI 31:0:0. Rebuild anything compiled against an earlier ThePEG, and recreate saved runs.
 
