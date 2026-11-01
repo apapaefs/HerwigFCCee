@@ -1,0 +1,62 @@
+# -*- ThePEG-repository -*-
+# Herwig read LEP-EvtGenGeometry.in; Herwig run LEP-EvtGenGeometry.run -N 1000
+# Generated from geometry-study/benchmark.json; native build, no study libraries required.
+# Only StandardEventHandler is supported. Hard-process and shower decays are outside the cylinder policy.
+read snippets/EECollider.in
+insert /Herwig/MatrixElements/SubProcess:MatrixElements 0 /Herwig/MatrixElements/MEee2gZ2qq
+set /Herwig/EventHandlers/Luminosity:Energy 91.200000000000003*GeV
+create ThePEG::GaussianBeamLuminosity /Herwig/EventHandlers/BeamSpread
+set /Herwig/EventHandlers/BeamSpread:MeanEnergyA 45.600000000000001
+set /Herwig/EventHandlers/BeamSpread:MeanEnergyB 45.600000000000001
+set /Herwig/EventHandlers/BeamSpread:RelativeSpreadA 0.0022100000000000002
+set /Herwig/EventHandlers/BeamSpread:RelativeSpreadB 0.0022100000000000002
+set /Herwig/EventHandlers/EventHandler:LuminosityFunction /Herwig/EventHandlers/BeamSpread
+set /Herwig/Partons/EEExtractor:FirstPDF /Herwig/Partons/LeptonPDF
+set /Herwig/Partons/EEExtractor:SecondPDF /Herwig/Partons/LeptonPDF
+cd /Herwig/Particles
+read defaults/EvtGenBDecays.in
+set /Herwig/Decays/EvtGenDecayer:Option All
+set /Herwig/Decays/EvtGenDecayer:LifetimeModel LegacyHerwig
+set /Herwig/Decays/EvtGenDecayer:RespectStable Yes
+insert /Herwig/Decays/EvtGen:UserDecays 0 FCCGeometry.dec
+cd /Herwig/Particles
+set K_L0:Stable Stable
+set mu-:Stable Stable
+set mu+:Stable Stable
+set K+:Stable Stable
+set K-:Stable Stable
+set n0:Stable Stable
+set nbar0:Stable Stable
+set K_S0:Stable Unstable
+set pi+:Stable Unstable
+set pi-:Stable Unstable
+do K_S0:SelectDecayModes K_S0->pi+,pi-;
+do pi+:SelectDecayModes pi+->nu_mu,mu+;
+do pi-:SelectDecayModes pi-->nu_mubar,mu-;
+set /Herwig/Decays/DecayHandler:LimitCylinder On
+set /Herwig/Decays/DecayHandler:CylinderRadius 2250*mm
+set /Herwig/Decays/DecayHandler:CylinderHalfLength 2500*mm
+create ThePEG::GaussianVertexDistribution /Herwig/EventHandlers/VertexDistribution
+set /Herwig/EventHandlers/VertexDistribution:MeanX 0*mm
+set /Herwig/EventHandlers/VertexDistribution:MeanY 0*mm
+set /Herwig/EventHandlers/VertexDistribution:MeanZ 0*mm
+set /Herwig/EventHandlers/VertexDistribution:MeanCT 0*mm
+set /Herwig/EventHandlers/VertexDistribution:SigmaX 0.00596*mm
+set /Herwig/EventHandlers/VertexDistribution:SigmaY 2.3799999999999999e-05*mm
+set /Herwig/EventHandlers/VertexDistribution:SigmaZ 0.39700000000000002*mm
+set /Herwig/EventHandlers/VertexDistribution:SigmaCT 10.890000000000001*mm
+set /Herwig/EventHandlers/VertexDistribution:MaxDeviationVertex 5.0
+set /Herwig/EventHandlers/VertexDistribution:MaxDeviationTime 5.0
+set /Herwig/EventHandlers/EventHandler:VertexDistribution /Herwig/EventHandlers/VertexDistribution
+# Requires a build configured with EvtGen. Lifetime ownership is independently optional:
+# Before reading: cp "$(herwig-config --datadir)/snippets/FCCGeometry.dec" .
+# set /Herwig/Decays/EvtGenDecayer:LifetimeModel EvtGen
+read snippets/HepMC.in
+set /Herwig/Analysis/HepMC:Format GenEventHepMC3
+set /Herwig/Analysis/HepMC:Precision 16
+set /Herwig/Analysis/HepMC:GeometryDiagnostics On
+set /Herwig/Analysis/HepMC:PrintEvent 1000
+set /Herwig/Analysis/HepMC:Filename LEP-EvtGenGeometry.hepmc
+set /Herwig/Random:Seed 271027
+set /Herwig/Generators/EventGenerator:NumberOfEvents 1000
+saverun LEP-EvtGenGeometry /Herwig/Generators/EventGenerator

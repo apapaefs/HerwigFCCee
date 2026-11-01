@@ -13,6 +13,17 @@ and JetPairRegion detector hemispheres include the beam rapidity. This corrects
 asymmetric fixed-beam configurations such as DIS as well as fluctuating beams;
 symmetric fixed-beam selections are unchanged.
 
+DecayHandler also provides an optional laboratory decay cylinder. The built-in
+GaussianVertexDistribution can smear the interaction point through
+StandardEventHandler:VertexDistribution. Both features default to off and are
+unsupported for LesHouchesEventHandler. They share the unreleased ABI 31:0:0
+transition: clean-rebuild dependents and recreate saved runs. Event geometry,
+flight consistency, clone/persistence and stop/resume regressions are included
+in make check. Herwig supplies installed LEP geometry example cards.
+The event context accepts rotations as well as boosts. Event persistence
+version 2 stores the boost and a signed rotation quaternion, including the
+spin-1/2 sign, and reads earlier version-1 boost-only contexts.
+
 To compile and install ThePEG follow these steps:
 
 1: run the configure script. To override the defaults: set eg. the

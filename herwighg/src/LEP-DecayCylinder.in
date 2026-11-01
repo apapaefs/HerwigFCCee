@@ -1,0 +1,38 @@
+# -*- ThePEG-repository -*-
+# Herwig read LEP-DecayCylinder.in; Herwig run LEP-DecayCylinder.run -N 1000
+# Generated from geometry-study/benchmark.json; native build, no study libraries required.
+# Only StandardEventHandler is supported. Hard-process and shower decays are outside the cylinder policy.
+# FCC geometry demo: five quark flavours and ISR off. Use LEP-FCC-DecayCylinder.in for the FCC process/ISR settings.
+read snippets/EECollider.in
+insert /Herwig/MatrixElements/SubProcess:MatrixElements 0 /Herwig/MatrixElements/MEee2gZ2qq
+set /Herwig/EventHandlers/Luminosity:Energy 91.188000000000002*GeV
+set /Herwig/Partons/EEExtractor:FirstPDF /Herwig/Partons/NoPDF
+set /Herwig/Partons/EEExtractor:SecondPDF /Herwig/Partons/NoPDF
+read snippets/NativeDecayTables.in
+cd /Herwig/Particles
+set K_L0:Stable Stable
+set mu-:Stable Stable
+set mu+:Stable Stable
+set K+:Stable Stable
+set K-:Stable Stable
+set n0:Stable Stable
+set nbar0:Stable Stable
+set K_S0:Stable Unstable
+set pi+:Stable Unstable
+set pi-:Stable Unstable
+do K_S0:SelectDecayModes K_S0->pi+,pi-;
+do pi+:SelectDecayModes pi+->nu_mu,mu+;
+do pi-:SelectDecayModes pi-->nu_mubar,mu-;
+set /Herwig/Decays/DecayHandler:LimitCylinder On
+set /Herwig/Decays/DecayHandler:CylinderRadius 2250*mm
+set /Herwig/Decays/DecayHandler:CylinderHalfLength 2500*mm
+set /Herwig/EventHandlers/EventHandler:VertexDistribution NULL
+read snippets/HepMC.in
+set /Herwig/Analysis/HepMC:Format GenEventHepMC3
+set /Herwig/Analysis/HepMC:Precision 16
+set /Herwig/Analysis/HepMC:GeometryDiagnostics On
+set /Herwig/Analysis/HepMC:PrintEvent 1000
+set /Herwig/Analysis/HepMC:Filename LEP-DecayCylinder.hepmc
+set /Herwig/Random:Seed 271027
+set /Herwig/Generators/EventGenerator:NumberOfEvents 1000
+saverun LEP-DecayCylinder /Herwig/Generators/EventGenerator

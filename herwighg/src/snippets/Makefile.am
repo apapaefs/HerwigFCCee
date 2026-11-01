@@ -9,6 +9,8 @@ DipoleMerging.in \
 DipoleShowerFiveFlavours.in \
 DipoleShowerFourFlavours.in \
 EECollider.in \
+NativeDecayTables.in \
+FCCGeometry.dec \
 EPCollider.in \
 PECollider.in \
 HepMCFixedOrder.in \

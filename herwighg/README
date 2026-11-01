@@ -23,3 +23,24 @@ IdentifiedParticleCut and PairRapidityCut now include the beam rapidity in
 laboratory selections, including the pair pseudorapidity option. This changes
 asymmetric fixed-beam setups such as DIS as well as Gaussian-spread runs.
 Their native regression is included in 'make check'.
+
+The LEP-DecayCylinder.in, LEP-FCC-DecayCylinder.in, LEP-VertexSmearing.in,
+LEP-BeamSpread-Geometry.in and LEP-EvtGenGeometry.in examples use the built-in geometry controls. Cylinder
+restrictions and Gaussian vertex/time smearing are independent and default to
+off. EvtGen lifetime ownership is separately opt-in; LegacyHerwig remains the
+default. These options require StandardEventHandler. LHE input and decays
+performed inside the shower/hard process are outside the cylinder scope.
+See each card for explicit species choices and native/EvtGen decay tables.
+LEP-FCC-DecayCylinder.in selects only s sbar with ISR at 91.188 GeV;
+LEP-DecayCylinder.in is the five-flavour geometry example without ISR.
+FCC-ee.in combines all three new features: independent 0.221% beam spreads,
+FCC vertex/time widths and the 2250/2500 mm laboratory cylinder. It selects
+s sbar at 91.188 GeV with lepton ISR, QCD/QED final-state radiation and native
+decays. It explicitly enables smearing, which is off in the FCC reference
+Pythia card. Run 'Herwig read FCC-ee.in', then 'Herwig run FCC-ee.run';
+the default is 100000 events, or use '-N 1000' for a quick check.
+In the opt-in EvtGen lifetime model, a rejected decay discards the event
+without retry, independently of output redirection. LegacyHerwig's complete
+tree path continues to use EvtGen's original entry point.
+After adding geometry to this unreleased ABI 31 branch, clean-rebuild ThePEG,
+Herwig and all dependent modules, and recreate saved runs.

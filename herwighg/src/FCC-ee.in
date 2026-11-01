@@ -1,0 +1,105 @@
+# -*- ThePEG-repository -*-
+# FCC-ee example: beam energy spread, vertex/time smearing and decay cylinder.
+# Herwig read FCC-ee.in
+# Herwig run FCC-ee.run                 # 100000 events
+# Herwig run FCC-ee.run -N 1000         # quick check
+#
+# FCC reference: https://github.com/HEP-FCC/FCC-config/blob/winter2023/FCCee/Generator/Pythia8/p8_ee_Zss_ecm91_Kspipi_pimu.cmd
+# The reference switches momentum/vertex smearing OFF. This example enables
+# all three features, using its vertex widths and our 0.221% beam benchmark.
+# Generated from geometry-study/benchmark.json and the beam-spread specification.
+
+##################################################
+# Process: e+ e- -> gamma*/Z -> s sbar at the Z pole
+##################################################
+read snippets/EECollider.in
+insert /Herwig/MatrixElements/SubProcess:MatrixElements 0 /Herwig/MatrixElements/MEee2gZ2qq
+set /Herwig/MatrixElements/MEee2gZ2qq:MinimumFlavour 3
+set /Herwig/MatrixElements/MEee2gZ2qq:MaximumFlavour 3
+# For inclusive five-flavour q qbar, use MinimumFlavour 1 and MaximumFlavour 5.
+set /Herwig/EventHandlers/Luminosity:Energy 91.188*GeV
+# Explicit study threshold, replacing the EECollider snippet's 22.36 GeV.
+set /Herwig/EventHandlers/EventHandler:Cuts:MHatMin 20*GeV
+
+# Collinear lepton ISR, followed by the standard QCD/QED final-state shower.
+set /Herwig/Partons/EEExtractor:FirstPDF /Herwig/Partons/LeptonPDF
+set /Herwig/Partons/EEExtractor:SecondPDF /Herwig/Partons/LeptonPDF
+set /Herwig/Shower/ShowerHandler:DoFSR Yes
+set /Herwig/Shower/ShowerHandler:Interactions QEDQCD
+# Cluster hadronization and native decays use the standard Herwig defaults.
+
+##################################################
+# 1. Independent Gaussian beam energy spread
+##################################################
+create ThePEG::GaussianBeamLuminosity /Herwig/EventHandlers/BeamSpread
+set /Herwig/EventHandlers/BeamSpread:MeanEnergyA 45.594*GeV
+set /Herwig/EventHandlers/BeamSpread:MeanEnergyB 45.594*GeV
+set /Herwig/EventHandlers/BeamSpread:RelativeSpreadA 0.00221
+set /Herwig/EventHandlers/BeamSpread:RelativeSpreadB 0.00221
+set /Herwig/EventHandlers/BeamSpread:NSigma 6
+set /Herwig/EventHandlers/EventHandler:LuminosityFunction /Herwig/EventHandlers/BeamSpread
+# RelativeSpread is sigma(E)/mean(E): 0.00221 = 0.221%, not 0.221.
+# To disable energy spread, set BOTH RelativeSpreadA and RelativeSpreadB to 0.
+
+##################################################
+# 2. Gaussian interaction-point position and time
+##################################################
+create ThePEG::GaussianVertexDistribution /Herwig/EventHandlers/VertexDistribution
+set /Herwig/EventHandlers/VertexDistribution:MeanX 0*mm
+set /Herwig/EventHandlers/VertexDistribution:MeanY 0*mm
+set /Herwig/EventHandlers/VertexDistribution:MeanZ 0*mm
+set /Herwig/EventHandlers/VertexDistribution:MeanCT 0*mm
+set /Herwig/EventHandlers/VertexDistribution:SigmaX 0.00596*mm
+set /Herwig/EventHandlers/VertexDistribution:SigmaY 2.38e-05*mm
+set /Herwig/EventHandlers/VertexDistribution:SigmaZ 0.397*mm
+set /Herwig/EventHandlers/VertexDistribution:SigmaCT 10.89*mm
+set /Herwig/EventHandlers/VertexDistribution:MaxDeviationVertex 5
+set /Herwig/EventHandlers/VertexDistribution:MaxDeviationTime 5
+set /Herwig/EventHandlers/EventHandler:VertexDistribution /Herwig/EventHandlers/VertexDistribution
+# CT is c times time, expressed in mm; SigmaCT corresponds to Pythia sigmaTime.
+# The spatial cutoff is one shared ellipsoid; the time cutoff is independent.
+# To disable: set /Herwig/EventHandlers/EventHandler:VertexDistribution NULL
+
+##################################################
+# 3. Decays restricted to the laboratory cylinder
+##################################################
+# Explicit native tables, also when Herwig was built with EvtGen support.
+read snippets/NativeDecayTables.in
+cd /Herwig/Particles
+set K_L0:Stable Stable
+set mu-:Stable Stable
+set mu+:Stable Stable
+set K+:Stable Stable
+set K-:Stable Stable
+set n0:Stable Stable
+set nbar0:Stable Stable
+set K_S0:Stable Unstable
+set pi+:Stable Unstable
+set pi-:Stable Unstable
+do K_S0:SelectDecayModes K_S0->pi+,pi-;
+do pi+:SelectDecayModes pi+->nu_mu,mu+;
+do pi-:SelectDecayModes pi-->nu_mubar,mu-;
+set /Herwig/Decays/DecayHandler:MaxLifeTime -1*mm
+set /Herwig/Decays/DecayHandler:LimitCylinder On
+set /Herwig/Decays/DecayHandler:CylinderRadius 2250*mm
+set /Herwig/Decays/DecayHandler:CylinderHalfLength 2500*mm
+# Cylinder centred on the laboratory origin; boundary points are accepted.
+# To disable: set /Herwig/Decays/DecayHandler:LimitCylinder Off
+# StandardEventHandler is required. Shower/hard-process decays are outside
+# this cylinder policy; LesHouchesEventHandler is unsupported.
+
+##################################################
+# HepMC3 output, event count and reproducible seed
+##################################################
+read snippets/HepMC.in
+set /Herwig/Analysis/HepMC:Format GenEventHepMC3
+set /Herwig/Analysis/HepMC:Units GeV_mm
+set /Herwig/Analysis/HepMC:Precision 16
+set /Herwig/Analysis/HepMC:GeometryDiagnostics On
+set /Herwig/Analysis/HepMC:PrintEvent 100000
+set /Herwig/Analysis/HepMC:Filename FCC-ee.hepmc
+set /Herwig/Random:Seed 271027
+set /Herwig/Generators/EventGenerator:NumberOfEvents 100000
+# Increase PrintEvent too when requesting more than 100000 events.
+
+saverun FCC-ee /Herwig/Generators/EventGenerator

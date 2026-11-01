@@ -1,0 +1,3 @@
+# Explicit native heavy-meson decay tables, independent of configure options.
+cd /Herwig/Particles
+read defaults/HerwigBDecays.in

@@ -15,7 +15,15 @@ Herwig_LDADD = $(THEPEGLIB) -ldl \
 $(top_builddir)/API/libHerwigAPI.la
 
 check_PROGRAMS = testMatchboxCutFrames
-TESTS = $(check_PROGRAMS)
+TESTS = $(check_PROGRAMS) testDecayPolicy.sh
+check_LTLIBRARIES = TestDecayPolicy.la
+TestDecayPolicy_la_SOURCES = testDecayPolicy.cc
+TestDecayPolicy_la_LDFLAGS = $(AM_LDFLAGS) $(THEPEGLDFLAGS) -module -avoid-version -rpath $(pkglibdir)
+TestDecayPolicy_la_LIBADD = $(THEPEGLIB)
+EXTRA_DIST = testDecayPolicy.sh testDecayPolicy.in
+check-TESTS: HerwigDefaults.rpo $(check_PROGRAMS) $(check_LTLIBRARIES)
+	./testMatchboxCutFrames
+	$(SHELL) $(srcdir)/testDecayPolicy.sh
 testMatchboxCutFrames_SOURCES = testMatchboxCutFrames.cc \
 ../MatrixElement/Matchbox/Cuts/IdentifiedParticleCut.cc \
 ../MatrixElement/Matchbox/Cuts/PairRapidityCut.cc
@@ -50,6 +58,7 @@ RPV-UDD.slha
 INPUTFILES = \
 DIS.in \
 DIS-Matchbox.in \
+FCC-ee.in \
 GammaGamma.in \
 ILC.in \
 ILC-HiddenValley.in \
@@ -58,6 +67,11 @@ ILC-MUED.in \
 ILC-RS.in \
 LEP.in \
 LEP-BeamSpread.in \
+LEP-DecayCylinder.in \
+LEP-FCC-DecayCylinder.in \
+LEP-VertexSmearing.in \
+LEP-BeamSpread-Geometry.in \
+LEP-EvtGenGeometry.in \
 LEP-Matchbox.in \
 LEP-LowEnergy.in \
 LHC-ADD.in \

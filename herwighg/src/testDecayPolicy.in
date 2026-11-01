@@ -1,0 +1,3 @@
+library TestDecayPolicy.so
+create GeometryTest::PolicyCheck /GeometryPolicyCheck
+do /GeometryPolicyCheck:Run

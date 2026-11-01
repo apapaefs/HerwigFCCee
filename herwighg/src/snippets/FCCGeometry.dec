@@ -1,0 +1,11 @@
+# Forced channels for the FCC geometry comparison, including EvtGen All trees.
+Decay K_S0
+1.0 pi+ pi- PHSP;
+Enddecay
+Decay pi+
+1.0 mu+ nu_mu PHSP;
+Enddecay
+Decay pi-
+1.0 mu- anti-nu_mu PHSP;
+Enddecay
+End

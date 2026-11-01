@@ -24,8 +24,10 @@ setupThePEG_LDFLAGS = $(AM_LDFLAGS) $(myLDFLAGS)
 setupThePEG_CPPFLAGS = $(AM_CPPFLAGS) \
 -DTHEPEG_PKGLIBDIR="\"$(pkglibdir)\""
 
-check_PROGRAMS = testGaussianBeamLuminosity testSubProcessTransforms testJetCutFrames testXCombLuminosityContract
+check_PROGRAMS = testDecayGeometry testGaussianBeamLuminosity testSubProcessTransforms testJetCutFrames testXCombLuminosityContract
 TESTS = $(check_PROGRAMS)
+testDecayGeometry_SOURCES = testDecayGeometry.cc
+testDecayGeometry_LDADD = $(myLDADD) $(GSLLIBS)
 testGaussianBeamLuminosity_SOURCES = testGaussianBeamLuminosity.cc
 testGaussianBeamLuminosity_LDADD = $(myLDADD) $(GSLLIBS)
 testSubProcessTransforms_SOURCES = testSubProcessTransforms.cc
