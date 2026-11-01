@@ -650,6 +650,9 @@ void ShowerTree::clear() {
     _outgoingLines[out.first]=temp;
     out.first->progenitor(temp);
   }
+  // the links to the daughter trees must follow the new progenitors
+  for(auto & link : _treelinks)
+    if(link.second.first) link.second.second = link.second.first->progenitor();
   // if a decay
   if(!_wasHard) {
     ShowerParticlePtr orig=_incomingLines.begin()->first->progenitor();
