@@ -65,6 +65,7 @@ handle(EventHandler &, const tPVector & tagged,
 // perform decay method including modifications for spin correlations
 // and for the decayer to specify intermediate decay products
 void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
+  if(parent->decayDisposition()==Particle::AboveMaxLifeTime) { develop(parent); return; }
   parent->synchronizeLifeLength();
   long ntry = 0;
   tcSpinPtr hwspin;
@@ -72,6 +73,12 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
     mixdata=dynamic_ptr_cast<tcMixedParticleDataPtr>(parent->dataPtr());
   if(mixdata) {
     pair<bool,Length> mixing = mixdata->generateLifeTime();
+    parent->properLifeLength(mixing.second);
+    if(maxLifeTime()>=ZERO &&
+       (lifeTimeOption() ? mixing.second : parent->data().cTau())>maxLifeTime()) {
+      parent->decayDisposition(Particle::AboveMaxLifeTime);
+      develop(parent); return;
+    }
     develop(parent);
     parent->properLifeLength(ZERO);
     PPtr newparent;
@@ -95,7 +102,7 @@ void HwDecayHandler::performDecay(tPPtr parent, Step & s) const {
   else if ( maxLifeTime() >= ZERO ) {
     if( ( lifeTimeOption() && parent->lifeLength().tau() > maxLifeTime())||
 	(!lifeTimeOption() && parent->data().cTau()      > maxLifeTime()) ) {
-      parent->setLifeLength(Distance());
+      parent->decayDisposition(Particle::AboveMaxLifeTime);
       develop(parent);
       return;
     }
