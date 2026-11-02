@@ -4,7 +4,7 @@ SUBDIRS = include \
 	UnderlyingEvent Analysis Looptools Sampling \
 	API lib src Doc Contrib Tests
 
-EXTRA_DIST = GUIDELINES cat_with_cpplines
+EXTRA_DIST = GUIDELINES cat_with_cpplines herwig3_parallel_objects.mk
 
 DISTCHECK_CONFIGURE_FLAGS = --enable-debug --with-thepeg=$(THEPEGPATH) --with-gsl=$(GSLPATH)
 
@@ -19,6 +19,10 @@ libclean:
 
 tests:
 	cd Tests && $(MAKE) $(AM_MAKEFLAGS) tests
+
+## Compile the objects of all directories in parallel; run "make all" next
+parallel-objects:
+	$(MAKE) $(AM_MAKEFLAGS) -f $(srcdir)/herwig3_parallel_objects.mk parallel-objects
 
 
 ## ThePEG registration
