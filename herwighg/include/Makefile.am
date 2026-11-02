@@ -25,10 +25,10 @@ done-all-links: $(DIRLINKS) $(LOOPTOOLHEADERS)
 
 install-data-local:
 	for dir in `find Herwig -follow \( -name '*.h' -or -name '*.icc' \
-	-or -name '*.tcc' -or -name '*.fh' -or -name '*.xh' \) -print | \
+	-or -name '*.tcc' -or -name '*.fh' -or -name '*.xh' \) ! -name '.*' -print | \
 	sed -e 's|/[^/]*$$||' | sort -u`; do \
 	  files=`find $$dir -maxdepth 1 -follow \( -name '*.h' -or -name '*.icc' \
-	  -or -name '*.tcc' -or -name '*.fh' -or -name '*.xh' \) -print`; \
+	  -or -name '*.tcc' -or -name '*.fh' -or -name '*.xh' \) ! -name '.*' -print`; \
 	  $(MKDIR_P) "$(DESTDIR)$(includedir)/$$dir" && \
 	  $(INSTALL_DATA) $$files "$(DESTDIR)$(includedir)/$$dir" || exit 1; \
 	done

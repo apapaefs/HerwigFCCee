@@ -18,8 +18,12 @@ LCG_HERWIG_SUB = $(MAKE) --no-print-directory -f Makefile -f $(LCG_HERWIG_HELPER
 
 ifeq ($(LCG_HERWIG_SUBMAKE),)
 
+# Only the marked lines name directories: a sub-make that regenerates an
+# out-of-date Makefile also prints the messages of config.status. The names
+# are joined by spaces, because make 3.81 does not split words at newlines.
 parallel-objects:
-	@dirs=`$(LCG_HERWIG_SUB) -s lcg-subdirs` || exit 1; \
+	@out=`$(LCG_HERWIG_SUB) -s lcg-subdirs` || exit 1; \
+	dirs=`printf '%s\n' "$$out" | sed -n 's/^lcg-herwig-dir //p' | tr '\n' ' '`; \
 	$(MAKE) --no-print-directory -f $(LCG_HERWIG_HELPER) LCG_HERWIG_DIRS=". $$dirs" lcg-run-sources && \
 	$(MAKE) --no-print-directory -f $(LCG_HERWIG_HELPER) LCG_HERWIG_DIRS=". $$dirs" lcg-run-objects
 
@@ -38,7 +42,7 @@ else
 lcg-subdirs:
 	+@for dir in $(SUBDIRS); do \
 	  test "$$dir" = . && continue; \
-	  echo "$(LCG_HERWIG_PREFIX)$$dir"; \
+	  echo "lcg-herwig-dir $(LCG_HERWIG_PREFIX)$$dir"; \
 	  $(LCG_HERWIG_SUB) -s -C "$$dir" LCG_HERWIG_PREFIX="$(LCG_HERWIG_PREFIX)$$dir/" lcg-subdirs || exit 1; \
 	done
 lcg-built-sources: $(BUILT_SOURCES)
