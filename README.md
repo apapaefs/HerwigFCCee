@@ -6,7 +6,7 @@
 - **Decay cylinder:** with `DecayHandler:LimitCylinder On`, a particle decays only if its sampled laboratory decay point is inside a cylinder set by `CylinderRadius` and `CylinderHalfLength`.
 - **Vertex smearing:** `ThePEG::GaussianVertexDistribution` smears the interaction point in position and time.
 
-All three are off by default. The code also fixes two faults in `ShowerTree::clear()` that affect events whose shower is retried.
+All three are off by default. The code also fixes two faults in `ShowerTree::clear()` that affect events whose shower is retried, and it adds a faster way to build Herwig.
 
 This is not an official Herwig release.
 
@@ -59,6 +59,8 @@ cd ../..
 ```
 
 EvtGen and Pythia are optional: use `--without-evtgen --without-pythia` to leave them out.
+
+To compile Herwig faster, run `make -j8 parallel-objects` before `make -j8`. The recursive build compiles one directory at a time and leaves most cores idle. This step first makes the generated sources of every directory, then compiles the objects of all directories together, and `make` is left with little more than the links. On an 18-core Mac at `-j18`, this cut the Herwig build from 266 s to 129 s, with the same objects. Running more compilations at once also takes more memory. `make install` is faster too, because it installs the headers one directory at a time. Both changes are based on a patch by Juan Miguel.
 
 The code has been tested on macOS arm64 with GCC 16 and Python 3.14, using these settings:
 
