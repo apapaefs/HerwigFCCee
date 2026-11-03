@@ -19,6 +19,8 @@ This is not an official Herwig release.
 
 The first commit is the unmodified upstream code, so comparing a later commit with it shows the local changes. The features and fixes follow as separate commits. The commits of the geometry series were not built one by one; only the complete set of changes has been validated.
 
+`herwighg/` also includes two later upstream changesets, `10869:0d0396b157c1` and `10870:85e0e8fd839d`, which fix the LHE example cards in `herwighg/src`. They are separate commits, so a comparison with the first commit shows them too.
+
 ## Build
 
 You need GNU Autotools with libtool, `gengetopt`, C++17 and Fortran compilers, GSL, Boost, LHAPDF, HepMC3 and FastJet. EvtGen and Pythia 8 are optional.
