@@ -17,7 +17,9 @@ LesHouchesReader::scan handles event files that lack some of the processes
 declared in their init block, and it matches the processes in the events to
 the init block by process number rather than by order. It used to read past
 the end of its per-process arrays for such files, which could give NaN cross
-sections.
+sections. For weighted files (IDWTUP = +/-4) the cross section of a process is
+its share of the summed weights, so files with several processes are no longer
+normalised to about NPRUP times their cross section.
 
 DecayHandler also provides an optional laboratory decay cylinder. The built-in
 GaussianVertexDistribution can smear the interaction point through

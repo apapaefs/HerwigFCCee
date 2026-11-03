@@ -391,13 +391,17 @@ long FxFxReader::scan() {
 	for ( int id = 0, N = lprup.size(); id < N; ++id )  {
 	  int ih = idh[id];
 	  if ( ih < 0 ) continue;
+	  // For |IDWTUP| = 4 the mean weight of all the events is the total
+	  // cross section, so a process contributes its summed weights
+	  // divided by the number of all the events, not of its own.
+	  double n = abs(heprup.IDWTUP) == 4 ? neve : nscanned[id];
 	  //set the cross section directly from the event weights read
-	  heprup.XSECUP[ih] = sumlprup[id]/nscanned[id];
-	  heprup.XERRUP[ih] = (sumsqlprup[id]/nscanned[id] - sqr(sumlprup[id]/nscanned[id])) / nscanned[id];
+	  heprup.XSECUP[ih] = sumlprup[id]/n;
+	  heprup.XERRUP[ih] = (sumsqlprup[id]/n - sqr(sumlprup[id]/n)) / n;
 	  if(fabs(heprup.XERRUP[ih]) < 1e-10) { heprup.XERRUP[ih] = 0; }
 	  if(fabs(newmax[id]) < 1e-10) { newmax[id] = 0; }
 	  if(heprup.XERRUP[ih] < 0.) {
-	    if( heprup.XERRUP[ih]/(sumsqlprup[id]/nscanned[id])>-1e-10)
+	    if( heprup.XERRUP[ih]/(sumsqlprup[id]/n)>-1e-10)
 	      heprup.XERRUP[ih] = 0.;
 	    else {
 	      Throw<FxFxInitError>()
