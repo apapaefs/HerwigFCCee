@@ -340,6 +340,29 @@ long FxFxReader::scan() {
     } //end of scanning events
     if ( maxScan() < 0 || neve > NEvents() ) NEvents(neve - cuteve);
 
+    // The events are generated from the cache file, so the events after
+    // the first MaxScan are cached as well. They count for the fraction
+    // of the events that is kept, but they are not scanned. Readers that
+    // produce events on the fly need not end, so they cache only the
+    // scanned events.
+    long nread = neve;
+    long ncached = neve - cuteve;
+    if ( cacheFile() && maxScan() >= 0 && !active() ) {
+      while ( readEvent() ) {
+        ++nread;
+        vector<int>::iterator idit =
+          find(lprup.begin(), lprup.end(), hepeup.IDPRUP);
+        int id = idit - lprup.begin();
+        bool scanned = idit != lprup.end();
+        if ( scanned ) ++oldeve[id];
+        if ( eventWeight() == 0.0 ) continue;
+        cacheEvent();
+        ++ncached;
+        if ( scanned ) ++neweve[id];
+      }
+      NEvents(ncached);
+    }
+
     // Find where each process seen in the events is declared in the init
     // block. The two orders need not agree, and declared processes may be
     // missing from the events. Processes that are not declared are added
@@ -374,8 +397,9 @@ long FxFxReader::scan() {
       heprup.resize(heprup.NPRUP + 1);
       heprup.LPRUP[idh[id]] = lprup[id];
     }
-    // The fraction of the scanned events that were kept.
-    double kept = neve > 0 ? double(neve - cuteve)/double(neve) : 1.0;
+    // The fraction of the events read that the cache file keeps. Without a
+    // cache file it is one, and the run rejects the cut events instead.
+    double kept = nread > 0 ? double(ncached)/double(nread) : 1.0;
     xSecWeights.assign(heprup.NPRUP, 1.0);
     if ( wtup == 1 ) {
       // Each process is unweighted against its own maximum weight.
@@ -1506,7 +1530,8 @@ void FxFxReader::Init() {
   static Parameter<FxFxReader,long> interfaceMaxScan
     ("MaxScan",
      "The maximum number of events to scan to obtain information about "
-     "processes and cross section in the intialization.",
+     "processes and cross section in the intialization. With a cache file, "
+     "the events after these are cached too.",
      &FxFxReader::theMaxScan, -1, 0, 0,
      true, false, false);
 
