@@ -345,7 +345,8 @@ long FxFxReader::scan() {
     // block. The two orders need not agree, and declared processes may be
     // missing from the events. Processes that are not declared are added
     // to the list, so that their events are kept.
-    bool declared = heprup.NPRUP > 0;
+    int wtup = abs(heprup.IDWTUP);
+    int ndeclared = heprup.NPRUP;
     heprup.resize();
     vector<int> idh(lprup.size());
     for ( int id = 0, N = lprup.size(); id < N; ++id ) {
@@ -355,7 +356,16 @@ long FxFxReader::scan() {
         idh[id] = idit - heprup.LPRUP.begin();
         continue;
       }
-      if ( declared )
+      // With |IDWTUP| = 2 or 3 the declared cross sections normalise the
+      // events, so every process has to be declared.
+      if ( ndeclared && ( wtup == 2 || wtup == 3 ) )
+        Throw<FxFxInitError>()
+          << "When scanning events, the LesHouschesReader '" << name()
+          << "' found the undeclared process " << lprup[id] << ". With IDWTUP = "
+          << heprup.IDWTUP << " the init block must declare every process, "
+          << "because its cross sections normalise the events."
+          << Exception::runerror;
+      if ( ndeclared )
         Throw<FxFxInitError>()
           << "When scanning events, the LesHouschesReader '" << name()
           << "' found the undeclared process " << lprup[id]
@@ -368,7 +378,6 @@ long FxFxReader::scan() {
     // The fraction of the scanned events that were kept.
     double kept = neve > 0 ? double(neve - cuteve)/double(neve) : 1.0;
     xSecWeights.assign(heprup.NPRUP, 1.0);
-    int wtup = abs(heprup.IDWTUP);
     if ( wtup == 1 ) {
       // Each process is unweighted against its own maximum weight.
       for ( int id = 0, N = lprup.size(); id < N; ++id ) {
@@ -382,21 +391,67 @@ long FxFxReader::scan() {
       // that the scan did not see. For |IDWTUP| = 2 the weights of each
       // process are first rescaled so that they add up to its declared
       // cross section; otherwise the weights are in pb.
+      bool partial = maxScan() >= 0 && neve >= maxScan();
+      bool given = false;
+      for ( int ip = 0; ip < heprup.NPRUP; ++ip )
+        if ( heprup.XSECUP[ip] != 0.0 ) given = true;
+      if ( ( wtup == 2 || wtup == 3 ) && !given )
+        Throw<FxFxInitError>()
+          << "The FxFxReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
+          << ", but its init block gives no cross sections, so its events "
+          << "cannot be normalised." << Exception::runerror;
       vector<double> scale(lprup.size(), 1.0);
-      double maxw = 0.0;
-      for ( int id = 0, N = lprup.size(); id < N; ++id ) {
-        double xsec = heprup.XSECUP[idh[id]];
-        if ( wtup == 2 && xsec*sumlprup[id] > 0.0 )
-          scale[id] = xsec*neve/sumlprup[id];
-        maxw = max(maxw, scale[id]*newmax[id]);
+      if ( wtup == 2 ) {
+        vector<bool> seen(heprup.NPRUP, false);
+        for ( int id = 0, N = lprup.size(); id < N; ++id ) {
+          int ih = idh[id];
+          double xsec = heprup.XSECUP[ih];
+          seen[ih] = true;
+          if ( xsec == 0.0 ) {
+            scale[id] = 0.0;
+            Throw<FxFxInitError>()
+              << "The FxFxReader '" << name() << "' declares no cross section "
+              << "for process " << lprup[id] << ", so its events get weight zero."
+              << Exception::warning;
+          }
+          else if ( xsec*sumlprup[id] > 0.0 )
+            scale[id] = xsec*neve/sumlprup[id];
+          else
+            Throw<FxFxInitError>()
+              << "The FxFxReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
+              << ", but the event weights of process " << lprup[id]
+              << " add up to zero or have the opposite sign to its declared "
+              << "cross section, so its events cannot be normalised."
+              << Exception::runerror;
+        }
+        for ( int ip = 0; ip < heprup.NPRUP; ++ip ) {
+          if ( seen[ip] || heprup.XSECUP[ip] == 0.0 ) continue;
+          if ( partial )
+            Throw<FxFxInitError>()
+              << "The FxFxReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
+              << ", but process " << heprup.LPRUP[ip] << " is not in the scanned "
+              << "events, so its events cannot be normalised. Scan the whole "
+              << "file with MaxScan -1." << Exception::runerror;
+          Throw<FxFxInitError>()
+            << "The FxFxReader '" << name() << "' found no events of process "
+            << heprup.LPRUP[ip] << ", so its cross section is left out."
+            << Exception::warning;
+        }
       }
+      double maxw = 0.0;
+      for ( int id = 0, N = lprup.size(); id < N; ++id )
+        maxw = max(maxw, scale[id]*newmax[id]);
+      // If no events were scanned, the largest declared maximum is shared.
+      if ( neve == 0 )
+        for ( int ip = 0; ip < heprup.NPRUP; ++ip )
+          maxw = max(maxw, abs(heprup.XMAXUP[ip]));
       if ( maxw > 0.0 ) {
         for ( int ip = 0; ip < heprup.NPRUP; ++ip ) {
           heprup.XMAXUP[ip] = maxw;
           xSecWeights[ip] = kept;
         }
         for ( int id = 0, N = lprup.size(); id < N; ++id ) {
-          heprup.XMAXUP[idh[id]] = maxw/scale[id];
+          heprup.XMAXUP[idh[id]] = scale[id] > 0.0 ? maxw/scale[id] : 0.0;
           xSecWeights[idh[id]] = scale[id]*kept;
         }
       }
@@ -423,18 +478,21 @@ long FxFxReader::scan() {
           heprup.XERRUP[ih] = sqrt(heprup.XERRUP[ih]);
         }
       }
-      // For |IDWTUP| = 3 the declared cross sections give the normalisation;
-      // otherwise the weights, rescaled for |IDWTUP| = 2, are in pb.
+      // For |IDWTUP| = 3 the declared total cross section is divided by the
+      // mean event weight; otherwise the weights, rescaled for |IDWTUP| = 2,
+      // are in pb. Without scanned events, IDWTUP = +3 events all have the
+      // weight XMAXUP.
       weightScale = 1.0*picobarn;
-      if ( wtup == 3 && neve > 0 ) {
+      if ( wtup == 3 ) {
         double sumxsec = 0.0;
         for ( int ip = 0; ip < heprup.NPRUP; ++ip ) sumxsec += heprup.XSECUP[ip];
-        if ( sumxsec == 0.0 )
+        double meanw = neve > 0 ? oldsum/neve : ( heprup.IDWTUP > 0 ? maxw : 0.0 );
+        if ( sumxsec == 0.0 || meanw == 0.0 )
           Throw<FxFxInitError>()
             << "The FxFxReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
-            << ", but its init block gives no cross sections, so its events "
-            << "cannot be normalised." << Exception::runerror;
-        if ( oldsum != 0.0 ) weightScale = picobarn*neve*sumxsec/oldsum;
+            << ", but its declared cross sections or its event weights add up "
+            << "to zero, so its events cannot be normalised." << Exception::runerror;
+        weightScale = picobarn*sumxsec/meanw;
       }
     }
   }

@@ -23,8 +23,12 @@ weight, so processes whose weights differ keep their relative weights. For
 IDWTUP = +/-4 the cross section of a process is its share of the summed
 weights, so files with several processes are no longer normalised to about
 NPRUP times their cross section. IDWTUP = +/-2 files are normalised to the
-cross sections declared in their init block, and IDWTUP = +/-3 files without
-declared cross sections are rejected.
+cross sections declared in their init block. Files whose normalisation the
+init block and the scanned events do not determine are rejected: IDWTUP =
++/-2 or +/-3 files with undeclared processes or without declared cross
+sections, +/-2 processes whose weights add up to zero or to the wrong sign
+or that a partial scan (MaxScan) missed, and +/-3 files whose declared cross
+sections or event weights add up to zero.
 
 DecayHandler also provides an optional laboratory decay cylinder. The built-in
 GaussianVertexDistribution can smear the interaction point through
