@@ -302,7 +302,7 @@ long LesHouchesReader::scan() {
     vector<double> sumlprup;
     vector<double> sumsqlprup;
     vector<long> nscanned;
-    for ( int i = 0; ( maxScan() < 0 || i < maxScan() ) && readEvent(); ++i ) {
+    for ( long i = 0; ( maxScan() < 0 || i < maxScan() ) && readEvent(); ++i ) {
       if ( !checkPartonBin() ) Throw<LesHouchesInitError>()
         << "Found event in LesHouchesReader '" << name()
         << "' which cannot be handeled by the assigned PartonExtractor '"
@@ -341,43 +341,35 @@ long LesHouchesReader::scan() {
     if ( maxScan() < 0 || neve > NEvents() ) NEvents(neve - cuteve);
 
     // Find where each process seen in the events is declared in the init
-    // block (-1 if it is not). The two orders need not agree, and declared
-    // processes may be missing from the events.
-    vector<int> idh(lprup.size(), -1);
-    bool undeclared = false;
+    // block. The two orders need not agree, and declared processes may be
+    // missing from the events. Processes that are not declared are added
+    // to the list, so that their events are kept.
+    bool declared = heprup.NPRUP > 0;
+    heprup.resize();
+    vector<int> idh(lprup.size());
     for ( int id = 0, N = lprup.size(); id < N; ++id ) {
       vector<int>::iterator idit =
         find(heprup.LPRUP.begin(), heprup.LPRUP.end(), lprup[id]);
-      if ( idit == heprup.LPRUP.end() ) undeclared = true;
-      else idh[id] = idit - heprup.LPRUP.begin();
-    }
-    if ( undeclared && heprup.NPRUP )
-      Throw<LesHouchesInitError>()
-        << "When scanning events, the LesHouschesReader '" << name()
-        << "' found undeclared processes."  << Exception::warning;
-    if ( lprup.size() == heprup.LPRUP.size() ) {
-      if ( undeclared ) heprup.NPRUP = 0;
-      else
-        for ( int id = 0, N = lprup.size(); id < N; ++id )
-          heprup.XMAXUP[idh[id]] = newmax[id];
-    }
-    if ( heprup.NPRUP == 0 ) {
-      // No heprup block was supplied or something went wrong.
-      heprup.NPRUP = lprup.size();
-      heprup.LPRUP.resize(lprup.size());
-      heprup.XSECUP.resize(lprup.size());
-      heprup.XERRUP.resize(lprup.size());
-      heprup.XMAXUP.resize(lprup.size());
-      for ( int id = 0, N = lprup.size(); id < N; ++id ) {
-        heprup.LPRUP[id] = lprup[id];
-        heprup.XMAXUP[id] = newmax[id];
-        idh[id] = id;
+      if ( idit != heprup.LPRUP.end() ) {
+        idh[id] = idit - heprup.LPRUP.begin();
+        continue;
       }
+      if ( declared )
+        Throw<LesHouchesInitError>()
+          << "When scanning events, the LesHouschesReader '" << name()
+          << "' found the undeclared process " << lprup[id]
+          << ", which was added to the processes of the init block."
+          << Exception::warning;
+      idh[id] = heprup.NPRUP;
+      heprup.resize(heprup.NPRUP + 1);
+      heprup.LPRUP[idh[id]] = lprup[id];
     }
     xSecWeights.assign(heprup.NPRUP, 1.0);
-    for ( int id = 0, N = lprup.size(); id < N; ++id )
-      if ( idh[id] >= 0 && oldeve[id] )
+    for ( int id = 0, N = lprup.size(); id < N; ++id ) {
+      heprup.XMAXUP[idh[id]] = newmax[id];
+      if ( oldeve[id] )
         xSecWeights[idh[id]] = double(neweve[id])/double(oldeve[id]);
+    }
     if ( abs(heprup.IDWTUP) != 1 ) {
       // Try to fix things if abs(heprup.IDWTUP) != 1.
       double sumxsec = 0.0;
@@ -389,7 +381,6 @@ long LesHouchesReader::scan() {
 	// init-block values
 	for ( int id = 0, N = lprup.size(); id < N; ++id )  {
 	  int ih = idh[id];
-	  if ( ih < 0 ) continue;
 	  // For |IDWTUP| = 4 the mean weight of all the events is the total
 	  // cross section, so a process contributes its summed weights
 	  // divided by the number of all the events, not of its own.
