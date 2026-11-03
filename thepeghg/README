@@ -13,6 +13,12 @@ and JetPairRegion detector hemispheres include the beam rapidity. This corrects
 asymmetric fixed-beam configurations such as DIS as well as fluctuating beams;
 symmetric fixed-beam selections are unchanged.
 
+LesHouchesReader::scan handles event files that lack some of the processes
+declared in their init block, and it matches the processes in the events to
+the init block by process number rather than by order. It used to read past
+the end of its per-process arrays for such files, which could give NaN cross
+sections.
+
 DecayHandler also provides an optional laboratory decay cylinder. The built-in
 GaussianVertexDistribution can smear the interaction point through
 StandardEventHandler:VertexDistribution. Both features default to off and are

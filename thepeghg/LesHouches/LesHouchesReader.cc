@@ -338,37 +338,46 @@ long LesHouchesReader::scan() {
       newmax[id] = max(newmax[id], abs(eventWeight()));
       if ( eventWeight() < 0.0 ) negw = true;
     } //end of scanning events
-    xSecWeights.resize(oldeve.size(), 1.0);
-    for ( int i = 0, N = oldeve.size(); i < N; ++i )
-      if ( oldeve[i] ) xSecWeights[i] = double(neweve[i])/double(oldeve[i]);
-
     if ( maxScan() < 0 || neve > NEvents() ) NEvents(neve - cuteve);
 
+    // Find where each process seen in the events is declared in the init
+    // block (-1 if it is not). The two orders need not agree, and declared
+    // processes may be missing from the events.
+    vector<int> idh(lprup.size(), -1);
+    bool undeclared = false;
+    for ( int id = 0, N = lprup.size(); id < N; ++id ) {
+      vector<int>::iterator idit =
+        find(heprup.LPRUP.begin(), heprup.LPRUP.end(), lprup[id]);
+      if ( idit == heprup.LPRUP.end() ) undeclared = true;
+      else idh[id] = idit - heprup.LPRUP.begin();
+    }
+    if ( undeclared && heprup.NPRUP )
+      Throw<LesHouchesInitError>()
+        << "When scanning events, the LesHouschesReader '" << name()
+        << "' found undeclared processes."  << Exception::warning;
     if ( lprup.size() == heprup.LPRUP.size() ) {
-      for ( int id = 0, N = lprup.size(); id < N; ++id ) {
-        vector<int>::iterator idit =
-          find(heprup.LPRUP.begin(), heprup.LPRUP.end(), hepeup.IDPRUP);
-        if ( idit == heprup.LPRUP.end() ) {
-          Throw<LesHouchesInitError>()
-            << "When scanning events, the LesHouschesReader '" << name()
-            << "' found undeclared processes."  << Exception::warning;
-          heprup.NPRUP = 0;
-          break;
-        }
-        int idh = idit - heprup.LPRUP.begin();
-        heprup.XMAXUP[idh] = newmax[id];
-      }
+      if ( undeclared ) heprup.NPRUP = 0;
+      else
+        for ( int id = 0, N = lprup.size(); id < N; ++id )
+          heprup.XMAXUP[idh[id]] = newmax[id];
     }
     if ( heprup.NPRUP == 0 ) {
       // No heprup block was supplied or something went wrong.
       heprup.NPRUP = lprup.size();
       heprup.LPRUP.resize(lprup.size());
+      heprup.XSECUP.resize(lprup.size());
+      heprup.XERRUP.resize(lprup.size());
       heprup.XMAXUP.resize(lprup.size());
       for ( int id = 0, N = lprup.size(); id < N; ++id ) {
         heprup.LPRUP[id] = lprup[id];
         heprup.XMAXUP[id] = newmax[id];
+        idh[id] = id;
       }
     }
+    xSecWeights.assign(heprup.NPRUP, 1.0);
+    for ( int id = 0, N = lprup.size(); id < N; ++id )
+      if ( idh[id] >= 0 && oldeve[id] )
+        xSecWeights[idh[id]] = double(neweve[id])/double(oldeve[id]);
     if ( abs(heprup.IDWTUP) != 1 ) {
       // Try to fix things if abs(heprup.IDWTUP) != 1.
       double sumxsec = 0.0;
@@ -376,23 +385,27 @@ long LesHouchesReader::scan() {
 	for ( int id = 0; id < heprup.NPRUP; ++id ) sumxsec += heprup.XSECUP[id];
       }
       else {
-	for ( int id = 0; id < heprup.NPRUP; ++id )  {
+	// declared processes that are not in the events keep their
+	// init-block values
+	for ( int id = 0, N = lprup.size(); id < N; ++id )  {
+	  int ih = idh[id];
+	  if ( ih < 0 ) continue;
 	  //set the cross section directly from the event weights read
-	  heprup.XSECUP[id] = sumlprup[id]/nscanned[id];
-	  heprup.XERRUP[id] = (sumsqlprup[id]/nscanned[id] - sqr(sumlprup[id]/nscanned[id])) / nscanned[id];
-	  if(heprup.XERRUP[id] < 0.) {
-	    if( heprup.XERRUP[id]/(sumsqlprup[id]/nscanned[id])>-1e-10)
-	      heprup.XERRUP[id] = 0.;
+	  heprup.XSECUP[ih] = sumlprup[id]/nscanned[id];
+	  heprup.XERRUP[ih] = (sumsqlprup[id]/nscanned[id] - sqr(sumlprup[id]/nscanned[id])) / nscanned[id];
+	  if(heprup.XERRUP[ih] < 0.) {
+	    if( heprup.XERRUP[ih]/(sumsqlprup[id]/nscanned[id])>-1e-10)
+	      heprup.XERRUP[ih] = 0.;
 	    else {
 	      Throw<LesHouchesInitError>()
 		<< "Negative error when scanning events in LesHouschesReader '" << name()
 		<< Exception::warning;
-	      heprup.XERRUP[id] = 0.;
+	      heprup.XERRUP[ih] = 0.;
 	    }
 	  }
-	  heprup.XERRUP[id] = sqrt( heprup.XERRUP[id] );
-	  heprup.XMAXUP[id] = newmax[id];
-	  sumxsec += heprup.XSECUP[id];
+	  heprup.XERRUP[ih] = sqrt( heprup.XERRUP[ih] );
+	  heprup.XMAXUP[ih] = newmax[id];
+	  sumxsec += heprup.XSECUP[ih];
 	}
       }
       weightScale = picobarn*neve*sumxsec/oldsum;

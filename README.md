@@ -6,7 +6,7 @@
 - **Decay cylinder:** with `DecayHandler:LimitCylinder On`, a particle decays only if its sampled laboratory decay point is inside a cylinder set by `CylinderRadius` and `CylinderHalfLength`.
 - **Vertex smearing:** `ThePEG::GaussianVertexDistribution` smears the interaction point in position and time.
 
-All three are off by default. The code also fixes two faults in `ShowerTree::clear()` that affect events whose shower is retried, and it adds a faster way to build Herwig. The FxFx reader of Les Houches event files is also fixed for files that lack some of the processes their init block declares. It used to read past the end of its per-process arrays, which could give NaN or wrong cross sections.
+All three are off by default. The code also fixes two faults in `ShowerTree::clear()` that affect events whose shower is retried, and it adds a faster way to build Herwig. The readers of Les Houches event files, ThePEG's and the FxFx one, are also fixed for files that lack some of the processes their init block declares. They used to read past the end of their per-process arrays, which could give NaN or wrong cross sections.
 
 This is not an official Herwig release.
 
