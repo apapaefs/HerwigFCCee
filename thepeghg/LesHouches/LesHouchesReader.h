@@ -455,9 +455,10 @@ protected:
   bool cutEarly() const { return doCutEarly; }
 
   /**
-   * File stream for the cache.
+   * File stream for the cache. This is a reference, since a copy would
+   * open and close only itself.
    */
-  CFile cacheFile() const { return theCacheFile;}
+  CFile & cacheFile() const { return theCacheFile;}
 
   /**
    * Open the cache file for reading.
@@ -778,9 +779,10 @@ protected:
   PVector theIntermediates;
 
   /**
-   * File stream for the cache.
+   * File stream for the cache. Mutable, because cacheEvent() const
+   * writes to it.
    */
-  CFile theCacheFile;
+  mutable CFile theCacheFile;
 
   /**
    * The reweight objects modifying the weights of this reader.
