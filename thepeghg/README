@@ -30,6 +30,14 @@ sections, +/-2 processes whose weights add up to zero or to the wrong sign
 or that a partial scan (MaxScan) missed, and +/-3 files whose declared cross
 sections or event weights add up to zero.
 
+The event cache of LesHouchesReader (CacheFileName) now works. cacheFile()
+returned a copy of the file handle, so the cache was never opened and the
+events were read from the event file, and the cache records could not hold
+the optional weights. The scan now writes every event that passes the cuts
+to the cache, and the fraction of the events kept scales the cross section.
+The run generates the events from the cache. The initialization of each run
+rewrites the cache, so runs at the same time need different cache files.
+
 DecayHandler also provides an optional laboratory decay cylinder. The built-in
 GaussianVertexDistribution can smear the interaction point through
 StandardEventHandler:VertexDistribution. Both features default to off and are

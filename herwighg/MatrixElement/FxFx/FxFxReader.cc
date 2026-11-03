@@ -75,7 +75,6 @@ void FxFxReader::doinitrun() {
   for ( StatMap::iterator i = statmap.begin(); i != statmap.end(); ++i )
     i->second.reset();
   open();
-  if ( cacheFileName().length() ) openReadCacheFile();
   position = 0;
   reopened = 0;
 }
@@ -497,7 +496,10 @@ long FxFxReader::scan() {
     }
   }
 
-  if ( cacheFile() ) closeCacheFile();
+  // The events are generated from the cache file. The event handler scans
+  // the file again in its run initialization, which rewrites the cache, so
+  // the cache is opened for reading here rather than in doinitrun().
+  if ( cacheFile() ) openReadCacheFile();
 
   if ( negw ) heprup.IDWTUP = min(-abs(heprup.IDWTUP), -1);
  
@@ -1511,7 +1513,11 @@ void FxFxReader::Init() {
   static Parameter<FxFxReader,string> interfaceCacheFileName
     ("CacheFileName",
      "Name of file used to cache the events form the reader in a fast-readable "
-     "form. If empty, no cache file will be generated.",
+     "form. If empty, no cache file will be generated. The events are written "
+     "to the file when the reader is initialized, and the run reads them from "
+     "it. Events that fail the cuts are left out of the file, and the cross "
+     "section is corrected for them. The initialization of each run writes the "
+     "file again, so runs at the same time need different cache files.",
      &FxFxReader::theCacheFileName, "",
      true, false);
   interfaceCacheFileName.fileType();
