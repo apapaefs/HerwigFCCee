@@ -1258,10 +1258,24 @@ void LesHouchesReader::closeCacheFile() {
   cacheFile().close();
 }
 
+namespace {
+  // CFile::read and CFile::write count the items transferred for plain
+  // files and pipes, but the bytes for gzip files. True if the whole item
+  // of the given number of bytes was transferred.
+  bool transferred(size_t n, size_t bytes) { return n == 1 || n == bytes; }
+}
+
 void LesHouchesReader::cacheEvent() const {
   static vector<char> buff;
-  cacheFile().write(&hepeup.NUP, sizeof(hepeup.NUP));
-  buff.resize(eventSize(hepeup.NUP));
+  // An event is stored as NUP, the size of the rest of the record, the
+  // eventSize(NUP) bytes of the event and its weights, the event number,
+  // npLO, npNLO and the optional weights with their names.
+  size_t size = eventSize(hepeup.NUP) + sizeof(LHEeventnum) +
+    sizeof(optionalnpLO) + sizeof(optionalnpNLO) + sizeof(size_t);
+  for ( map<string,double>::const_iterator it = optionalWeights.begin();
+        it != optionalWeights.end(); ++it )
+    size += sizeof(size_t) + it->first.size() + sizeof(double);
+  buff.resize(size);
   char * pos = &buff[0];
   pos = mwrite(pos, hepeup.IDPRUP);
   pos = mwrite(pos, hepeup.XWGTUP);
@@ -1278,55 +1292,82 @@ void LesHouchesReader::cacheEvent() const {
   pos = mwrite(pos, hepeup.VTIMUP[0], hepeup.NUP);
   pos = mwrite(pos, hepeup.SPINUP[0], hepeup.NUP);
   pos = mwrite(pos, lastweight);
-  pos = mwrite(pos, optionalWeights);
+  pos = mwrite(pos, preweight);
   pos = mwrite(pos, LHEeventnum);
-  for(size_t ff = 0; ff < optionalWeightsNames.size(); ff++) {
-    pos = mwrite(pos, optionalWeightsNames[ff]);
-  }
   pos = mwrite(pos, optionalnpLO);
   pos = mwrite(pos, optionalnpNLO);
-  pos = mwrite(pos, preweight);
-  cacheFile().write(&buff[0], buff.size(), 1);
+  pos = mwrite(pos, optionalWeights.size());
+  for ( map<string,double>::const_iterator it = optionalWeights.begin();
+        it != optionalWeights.end(); ++it ) {
+    pos = mwrite(pos, it->first.size());
+    pos = mwrite(pos, *it->first.data(), it->first.size());
+    pos = mwrite(pos, it->second);
+  }
+  if ( !transferred(cacheFile().write(&hepeup.NUP, sizeof(hepeup.NUP)),
+                    sizeof(hepeup.NUP)) ||
+       !transferred(cacheFile().write(&size, sizeof(size)), sizeof(size)) ||
+       !transferred(cacheFile().write(&buff[0], size), size) )
+    Throw<LesHouchesInitError>()
+      << "LesHouchesReader '" << name() << "' could not write to the cache "
+      << "file '" << cacheFileName() << "'." << Exception::runerror;
 }
 
 bool LesHouchesReader::uncacheEvent() {
   reset();
   static vector<char> buff;
-  if ( cacheFile().read(&hepeup.NUP, sizeof(hepeup.NUP)) != 1 )
-    return false;
-  buff.resize(eventSize(hepeup.NUP));
-  if ( cacheFile().read(&buff[0], buff.size()) != 1 ) return false;
+  // The file may end only before the NUP of an event.
+  size_t n = cacheFile().read(&hepeup.NUP, sizeof(hepeup.NUP));
+  if ( n == 0 ) return false;
+  size_t size = 0;
+  bool ok = transferred(n, sizeof(hepeup.NUP)) && hepeup.NUP > 0 &&
+    transferred(cacheFile().read(&size, sizeof(size)), sizeof(size)) &&
+    size >= eventSize(hepeup.NUP) + sizeof(LHEeventnum) +
+            sizeof(optionalnpLO) + sizeof(optionalnpNLO) + sizeof(size_t);
+  if ( ok ) {
+    buff.resize(size);
+    ok = transferred(cacheFile().read(&buff[0], size), size);
+  }
+  if ( !ok ) Throw<LesHouchesInconsistencyError>()
+    << "The cache file '" << cacheFileName() << "' of LesHouchesReader '"
+    << name() << "' is truncated or corrupt." << Exception::runerror;
   const char * pos = &buff[0];
+  const char * end = pos + size;
   pos = mread(pos, hepeup.IDPRUP);
   pos = mread(pos, hepeup.XWGTUP);
   pos = mread(pos, hepeup.XPDWUP);
   pos = mread(pos, hepeup.SCALUP);
   pos = mread(pos, hepeup.AQEDUP);
   pos = mread(pos, hepeup.AQCDUP);
-  hepeup.IDUP.resize(hepeup.NUP);
+  hepeup.resize();
   pos = mread(pos, hepeup.IDUP[0], hepeup.NUP);
-  hepeup.ISTUP.resize(hepeup.NUP);
   pos = mread(pos, hepeup.ISTUP[0], hepeup.NUP);
-  hepeup.MOTHUP.resize(hepeup.NUP);
   pos = mread(pos, hepeup.MOTHUP[0], hepeup.NUP);
-  hepeup.ICOLUP.resize(hepeup.NUP);
   pos = mread(pos, hepeup.ICOLUP[0], hepeup.NUP);
-  hepeup.PUP.resize(hepeup.NUP);
   for ( int i = 0; i < hepeup.NUP; ++i )
     pos = mread(pos, hepeup.PUP[i][0], 5);
-  hepeup.VTIMUP.resize(hepeup.NUP);
   pos = mread(pos, hepeup.VTIMUP[0], hepeup.NUP);
-  hepeup.SPINUP.resize(hepeup.NUP);
   pos = mread(pos, hepeup.SPINUP[0], hepeup.NUP);
   pos = mread(pos, lastweight);
-  pos = mread(pos, optionalWeights);
-  for(size_t ff = 0; ff < optionalWeightsNames.size(); ff++) {
-    pos = mread(pos, optionalWeightsNames[ff]);
-  }
-  pos = mread(pos, optionalnpLO);
-  pos = mread(pos, optionalnpNLO);
   pos = mread(pos, preweight);
   pos = mread(pos, LHEeventnum);
+  pos = mread(pos, optionalnpLO);
+  pos = mread(pos, optionalnpNLO);
+  size_t nopt = 0;
+  pos = mread(pos, nopt);
+  optionalWeights.clear();
+  for ( size_t i = 0; ok && i < nopt; ++i ) {
+    size_t len = 0;
+    ok = size_t(end - pos) >= sizeof(len);
+    if ( ok ) pos = mread(pos, len);
+    ok = ok && len <= size_t(end - pos) &&
+      size_t(end - pos) - len >= sizeof(double);
+    if ( !ok ) break;
+    string wname(pos, len);
+    pos = mread(pos + len, optionalWeights[wname]);
+  }
+  if ( !ok || pos != end ) Throw<LesHouchesInconsistencyError>()
+    << "The cache file '" << cacheFileName() << "' of LesHouchesReader '"
+    << name() << "' is truncated or corrupt." << Exception::runerror;
   // If we are skipping, we do not have to do anything else.
   if ( skipping ) return true;
 
