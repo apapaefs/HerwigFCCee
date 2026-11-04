@@ -546,6 +546,16 @@ protected:
    * Go through the mother indices and connect up the Particles.
    */
   virtual void connectMothers();
+
+  /**
+   * Return true if the processes of the events appear in proportion to
+   * their cross sections, as in one sample of all of them, even though
+   * IDWTUP is +/-1. The events are then normalised together, as for
+   * IDWTUP = +/-4, rather than each process to the mean weight of its
+   * own events, as in the Les Houches accord. MadGraphReader returns
+   * true, since it sets IDWTUP = 1 for MadEvent files.
+   */
+  virtual bool processesInProportion() const { return false; }
   //@}
 
 public:

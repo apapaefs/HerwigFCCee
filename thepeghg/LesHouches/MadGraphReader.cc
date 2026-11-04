@@ -220,16 +220,14 @@ void MadGraphReader::open() {
 
 
 long MadGraphReader::scan() {
-  bool fixscale = !NEvents();
-  long neve = LesHouchesFileReader::scan();
-  if ( fixscale ) {
-    // MadEvent has gives wrong values for XMAXUP and XWGTUP, they
-    // need to be multiplied by the number of events to be LHEF
-    // compliant.
-    weightScale = neve*picobarn;
-    if ( heprup.NPRUP > 1 ) weightScale /= heprup.NPRUP;
-  }
-  return neve;
+  long nscan = LesHouchesFileReader::scan();
+  // MadEvent has gives wrong values for XMAXUP and XWGTUP, they
+  // need to be multiplied by the number of events to be LHEF
+  // compliant. The number is that of the header, which open() reads
+  // in every initialization, or else that of the scan. The scan is
+  // repeated in the run initialization, so the scale is set anew.
+  weightScale = ( neve > 0 ? neve : nscan )*picobarn;
+  return nscan;
 }
 
 bool MadGraphReader::doReadEvent() {

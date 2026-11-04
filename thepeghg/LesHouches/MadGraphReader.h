@@ -50,8 +50,8 @@ public:
    * weights and particles etc. This function should fill the
    * variables corresponding to the /HEPRUP/ common block. The
    * function returns the number of events scanned. This version calls
-   * the base class function and the readjusts the values in HEPRUP to
-   * cure some inconsistencies in the MadGraph files.
+   * the base class function and then sets the weight scale from the
+   * number of events, to cure some inconsistencies in the MadGraph files.
    */
   virtual long scan();
 
@@ -157,6 +157,12 @@ protected:
    *  Function to extract the number of events from a string
    */
   long numberOfEvents(string);
+
+  /**
+   * A MadEvent file is one sample: its processes appear in proportion to
+   * their cross sections, and its events have the same weight.
+   */
+  virtual bool processesInProportion() const { return true; }
 
 protected:
 

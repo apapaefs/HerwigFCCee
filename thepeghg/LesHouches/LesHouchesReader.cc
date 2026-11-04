@@ -288,8 +288,12 @@ long LesHouchesReader::scan() {
   bool negw = false;
 
   // If the open() has not already gotten information about subprocesses
-  // and cross sections we have to scan through the events.
-  if ( !heprup.NPRUP || cacheFile() || abs(heprup.IDWTUP) != 1 ) { // why scan if IDWTUP != 1?
+  // and cross sections we have to scan through the events. The events are
+  // also needed to normalise them for every weighting scheme other than
+  // |IDWTUP| = 1, and for |IDWTUP| = 1 with several processes, where each
+  // process is normalised to the mean weight of its own events.
+  if ( !heprup.NPRUP || heprup.NPRUP > 1 || cacheFile() ||
+       abs(heprup.IDWTUP) != 1 ) {
 
     HoldFlag<> isScanning(scanning);
 
@@ -297,7 +301,6 @@ long LesHouchesReader::scan() {
     vector<int> lprup;
     vector<double> newmax;
     vector<long> oldeve;
-    vector<long> neweve;
     vector<double> sumlprup;
     vector<double> sumsqlprup;
     vector<long> nscanned;
@@ -312,7 +315,6 @@ long LesHouchesReader::scan() {
       if ( idit == lprup.end() ) {
         lprup.push_back(hepeup.IDPRUP);
         newmax.push_back(0.0);
-        neweve.push_back(0);
         oldeve.push_back(0);
         sumlprup.push_back(0.);
         sumsqlprup.push_back(0.);
@@ -333,7 +335,6 @@ long LesHouchesReader::scan() {
         }
         cacheEvent();
       }
-      ++neweve[id];
       newmax[id] = max(newmax[id], abs(eventWeight()));
       if ( eventWeight() < 0.0 ) negw = true;
     } //end of scanning events
@@ -341,9 +342,9 @@ long LesHouchesReader::scan() {
 
     // The events are generated from the cache file, so the events after
     // the first MaxScan are cached as well. They count for the fraction
-    // of the events that is kept, but they are not scanned. Readers that
-    // produce events on the fly need not end, so they cache only the
-    // scanned events.
+    // of the events that is kept and, for |IDWTUP| = 1, for the shares of
+    // the processes, but they are not scanned. Readers that produce events
+    // on the fly need not end, so they cache only the scanned events.
     long nread = neve;
     long ncached = neve - cuteve;
     if ( cacheFile() && maxScan() >= 0 && !active() ) {
@@ -357,7 +358,6 @@ long LesHouchesReader::scan() {
         if ( eventWeight() == 0.0 ) continue;
         cacheEvent();
         ++ncached;
-        if ( scanned ) ++neweve[id];
       }
       NEvents(ncached);
     }
@@ -367,6 +367,10 @@ long LesHouchesReader::scan() {
     // missing from the events. Processes that are not declared are added
     // to the list, so that their events are kept.
     int wtup = abs(heprup.IDWTUP);
+    // A file whose processes appear in proportion to their cross sections
+    // is one sample, which is normalised as weighted events are, although
+    // its IDWTUP is +/-1.
+    if ( wtup == 1 && processesInProportion() ) wtup = 4;
     int ndeclared = heprup.NPRUP;
     heprup.resize();
     vector<int> idh(lprup.size());
@@ -400,121 +404,137 @@ long LesHouchesReader::scan() {
     // cache file it is one, and the run rejects the cut events instead.
     double kept = nread > 0 ? double(ncached)/double(nread) : 1.0;
     xSecWeights.assign(heprup.NPRUP, 1.0);
-    if ( wtup == 1 ) {
-      // Each process is unweighted against its own maximum weight.
+    // The events are read in the order of the file, so all processes share
+    // one maximum weight, which also covers the declared processes that the
+    // scan did not see. The weights of each process are first rescaled: for
+    // |IDWTUP| = 1 by the inverse of its share of the events, so that they
+    // add up to the mean weight of its own events, which is its cross
+    // section in the Les Houches accord, and for |IDWTUP| = 2 so that they
+    // add up to its declared cross section. Otherwise, and in one sample,
+    // they are not rescaled.
+    bool partial = maxScan() >= 0 && neve >= maxScan();
+    bool given = false;
+    for ( int ip = 0; ip < heprup.NPRUP; ++ip )
+      if ( heprup.XSECUP[ip] != 0.0 ) given = true;
+    if ( ( wtup == 2 || wtup == 3 ) && !given )
+      Throw<LesHouchesInitError>()
+        << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
+        << ", but its init block gives no cross sections, so its events "
+        << "cannot be normalised." << Exception::runerror;
+    vector<double> scale(lprup.size(), 1.0);
+    if ( wtup == 1 || wtup == 2 ) {
+      vector<bool> seen(heprup.NPRUP, false);
       for ( int id = 0, N = lprup.size(); id < N; ++id ) {
-        heprup.XMAXUP[idh[id]] = newmax[id];
-        if ( oldeve[id] )
-          xSecWeights[idh[id]] = double(neweve[id])/double(oldeve[id]);
-      }
-    } else {
-      // The events are read in the order of the file, so all processes
-      // share one maximum weight, which also covers the declared processes
-      // that the scan did not see. For |IDWTUP| = 2 the weights of each
-      // process are first rescaled so that they add up to its declared
-      // cross section; otherwise the weights are in pb.
-      bool partial = maxScan() >= 0 && neve >= maxScan();
-      bool given = false;
-      for ( int ip = 0; ip < heprup.NPRUP; ++ip )
-        if ( heprup.XSECUP[ip] != 0.0 ) given = true;
-      if ( ( wtup == 2 || wtup == 3 ) && !given )
-        Throw<LesHouchesInitError>()
-          << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
-          << ", but its init block gives no cross sections, so its events "
-          << "cannot be normalised." << Exception::runerror;
-      vector<double> scale(lprup.size(), 1.0);
-      if ( wtup == 2 ) {
-        vector<bool> seen(heprup.NPRUP, false);
-        for ( int id = 0, N = lprup.size(); id < N; ++id ) {
-          int ih = idh[id];
-          double xsec = heprup.XSECUP[ih];
-          seen[ih] = true;
-          if ( xsec == 0.0 ) {
-            scale[id] = 0.0;
-            Throw<LesHouchesInitError>()
-              << "The LesHouchesReader '" << name() << "' declares no cross section "
-              << "for process " << lprup[id] << ", so its events get weight zero."
-              << Exception::warning;
-          }
-          else if ( xsec*sumlprup[id] > 0.0 )
-            scale[id] = xsec*neve/sumlprup[id];
-          else
-            Throw<LesHouchesInitError>()
-              << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
-              << ", but the event weights of process " << lprup[id]
-              << " add up to zero or have the opposite sign to its declared "
-              << "cross section, so its events cannot be normalised."
-              << Exception::runerror;
-        }
-        for ( int ip = 0; ip < heprup.NPRUP; ++ip ) {
-          if ( seen[ip] || heprup.XSECUP[ip] == 0.0 ) continue;
-          if ( partial )
-            Throw<LesHouchesInitError>()
-              << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
-              << ", but process " << heprup.LPRUP[ip] << " is not in the scanned "
-              << "events, so its events cannot be normalised. Scan the whole "
-              << "file with MaxScan -1." << Exception::runerror;
+        int ih = idh[id];
+        double xsec = heprup.XSECUP[ih];
+        seen[ih] = true;
+        if ( wtup == 1 )
+          scale[id] = double(nread)/double(oldeve[id]);
+        else if ( xsec == 0.0 ) {
+          scale[id] = 0.0;
           Throw<LesHouchesInitError>()
-            << "The LesHouchesReader '" << name() << "' found no events of process "
-            << heprup.LPRUP[ip] << ", so its cross section is left out."
+            << "The LesHouchesReader '" << name() << "' declares no cross section "
+            << "for process " << lprup[id] << ", so its events get weight zero."
             << Exception::warning;
         }
-      }
-      double maxw = 0.0;
-      for ( int id = 0, N = lprup.size(); id < N; ++id )
-        maxw = max(maxw, scale[id]*newmax[id]);
-      // If no events were scanned, the largest declared maximum is shared.
-      if ( neve == 0 )
-        for ( int ip = 0; ip < heprup.NPRUP; ++ip )
-          maxw = max(maxw, abs(heprup.XMAXUP[ip]));
-      if ( maxw > 0.0 ) {
-        for ( int ip = 0; ip < heprup.NPRUP; ++ip ) {
-          heprup.XMAXUP[ip] = maxw;
-          xSecWeights[ip] = kept;
-        }
-        for ( int id = 0, N = lprup.size(); id < N; ++id ) {
-          heprup.XMAXUP[idh[id]] = scale[id] > 0.0 ? maxw/scale[id] : 0.0;
-          xSecWeights[idh[id]] = scale[id]*kept;
-        }
-      }
-      if ( wtup != 2 && wtup != 3 ) {
-        // The mean weight of all the events is the total cross section, so
-        // a process contributes its summed weights divided by the number of
-        // all the events, not of its own. Declared processes that are not
-        // in the events keep their init-block values.
-        for ( int id = 0, N = lprup.size(); id < N; ++id ) {
-          int ih = idh[id];
-          heprup.XSECUP[ih] = sumlprup[id]/neve;
-          heprup.XERRUP[ih] = (sumsqlprup[id]/neve - sqr(sumlprup[id]/neve))/neve;
-          if ( heprup.XERRUP[ih] < 0.0 ) {
-            if ( heprup.XERRUP[ih]/(sumsqlprup[id]/neve) > -1e-10 )
-              heprup.XERRUP[ih] = 0.0;
-            else {
-              Throw<LesHouchesInitError>()
-                << "Negative error when scanning events in LesHouschesReader '" << name()
-                << Exception::warning;
-              heprup.XERRUP[ih] = 0.0;
-            }
-          }
-          heprup.XERRUP[ih] = sqrt(heprup.XERRUP[ih]);
-        }
-      }
-      // For |IDWTUP| = 3 the declared total cross section is divided by the
-      // mean event weight; otherwise the weights, rescaled for |IDWTUP| = 2,
-      // are in pb. Without scanned events, IDWTUP = +3 events all have the
-      // weight XMAXUP.
-      weightScale = 1.0*picobarn;
-      if ( wtup == 3 ) {
-        double sumxsec = 0.0;
-        for ( int ip = 0; ip < heprup.NPRUP; ++ip ) sumxsec += heprup.XSECUP[ip];
-        double meanw = neve > 0 ? oldsum/neve : ( heprup.IDWTUP > 0 ? maxw : 0.0 );
-        if ( sumxsec == 0.0 || meanw == 0.0 )
+        else if ( xsec*sumlprup[id] > 0.0 )
+          scale[id] = xsec*neve/sumlprup[id];
+        else
           Throw<LesHouchesInitError>()
             << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
-            << ", but its declared cross sections or its event weights add up "
-            << "to zero, so its events cannot be normalised." << Exception::runerror;
-        weightScale = picobarn*sumxsec/meanw;
+            << ", but the event weights of process " << lprup[id]
+            << " add up to zero or have the opposite sign to its declared "
+            << "cross section, so its events cannot be normalised."
+            << Exception::runerror;
       }
+      // A declared process takes part through its maximum weight for
+      // |IDWTUP| = 1 and through its cross section for |IDWTUP| = 2.
+      for ( int ip = 0; ip < heprup.NPRUP; ++ip ) {
+        double declared = wtup == 1 ? heprup.XMAXUP[ip] : heprup.XSECUP[ip];
+        if ( seen[ip] || declared == 0.0 ) continue;
+        if ( partial )
+          Throw<LesHouchesInitError>()
+            << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
+            << ", but process " << heprup.LPRUP[ip] << " is not in the scanned "
+            << "events, so its events cannot be normalised. Scan the whole "
+            << "file with MaxScan -1." << Exception::runerror;
+        Throw<LesHouchesInitError>()
+          << "The LesHouchesReader '" << name() << "' found no events of process "
+          << heprup.LPRUP[ip] << ", so its cross section is left out."
+          << Exception::warning;
+      }
+      // With a cache file the events after the first MaxScan are read as
+      // well. Those of processes that the scan did not see have neither a
+      // share nor a scanned weight sum.
+      long counted = 0;
+      for ( int id = 0, N = lprup.size(); id < N; ++id ) counted += oldeve[id];
+      if ( counted < nread )
+        Throw<LesHouchesInitError>()
+          << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
+          << ", but " << nread - counted << " events after the first " << maxScan()
+          << " belong to processes that the scan did not see, so their events "
+          << "cannot be normalised. Scan the whole file with MaxScan -1."
+          << Exception::runerror;
+    }
+    double maxw = 0.0;
+    for ( int id = 0, N = lprup.size(); id < N; ++id )
+      maxw = max(maxw, scale[id]*newmax[id]);
+    // If no events were scanned, the largest declared maximum is shared.
+    if ( neve == 0 )
+      for ( int ip = 0; ip < heprup.NPRUP; ++ip )
+        maxw = max(maxw, abs(heprup.XMAXUP[ip]));
+    if ( maxw > 0.0 ) {
+      for ( int ip = 0; ip < heprup.NPRUP; ++ip ) {
+        heprup.XMAXUP[ip] = maxw;
+        xSecWeights[ip] = kept;
+      }
+      for ( int id = 0, N = lprup.size(); id < N; ++id ) {
+        heprup.XMAXUP[idh[id]] = scale[id] > 0.0 ? maxw/scale[id] : 0.0;
+        xSecWeights[idh[id]] = scale[id]*kept;
+      }
+    }
+    if ( wtup != 2 && wtup != 3 ) {
+      // For |IDWTUP| = 1 the cross section of a process is the mean weight
+      // of its own events. Otherwise the mean weight of all the events is
+      // the total cross section, so a process contributes its summed
+      // weights divided by the number of all the events, not of its own.
+      // Declared processes that are not in the events keep their
+      // init-block values.
+      for ( int id = 0, N = lprup.size(); id < N; ++id ) {
+        int ih = idh[id];
+        double n = wtup == 1 ? nscanned[id] : neve;
+        heprup.XSECUP[ih] = sumlprup[id]/n;
+        heprup.XERRUP[ih] = (sumsqlprup[id]/n - sqr(sumlprup[id]/n))/n;
+        if ( heprup.XERRUP[ih] < 0.0 ) {
+          if ( heprup.XERRUP[ih]/(sumsqlprup[id]/n) > -1e-10 )
+            heprup.XERRUP[ih] = 0.0;
+          else {
+            Throw<LesHouchesInitError>()
+              << "Negative error when scanning events in LesHouschesReader '" << name()
+              << Exception::warning;
+            heprup.XERRUP[ih] = 0.0;
+          }
+        }
+        heprup.XERRUP[ih] = sqrt(heprup.XERRUP[ih]);
+      }
+    }
+    // For |IDWTUP| = 3 the declared total cross section is divided by the
+    // mean event weight; for 0, 2 and 4 the weights, rescaled for
+    // |IDWTUP| = 2, are in pb. Without scanned events, IDWTUP = +3 events
+    // all have the weight XMAXUP. For |IDWTUP| = 1, one sample or not,
+    // weightScale stays as the reader set it, which is 1 pb unless a
+    // sub-class such as MadGraphReader changed it.
+    if ( abs(heprup.IDWTUP) != 1 ) weightScale = 1.0*picobarn;
+    if ( wtup == 3 ) {
+      double sumxsec = 0.0;
+      for ( int ip = 0; ip < heprup.NPRUP; ++ip ) sumxsec += heprup.XSECUP[ip];
+      double meanw = neve > 0 ? oldsum/neve : ( heprup.IDWTUP > 0 ? maxw : 0.0 );
+      if ( sumxsec == 0.0 || meanw == 0.0 )
+        Throw<LesHouchesInitError>()
+          << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
+          << ", but its declared cross sections or its event weights add up "
+          << "to zero, so its events cannot be normalised." << Exception::runerror;
+      weightScale = picobarn*sumxsec/meanw;
     }
   }
 
@@ -541,10 +561,13 @@ void LesHouchesReader::initStat() {
   xSecWeights.resize(heprup.NPRUP, 1.0);
   maxWeights.clear();
   for ( int ip = 0; ip < heprup.NPRUP; ++ip ) {
-    sumx = max(heprup.XMAXUP[ip]*xSecWeights[ip], sumx);
-    statmap[heprup.LPRUP[ip]] =
-      XSecStat(heprup.XMAXUP[ip]*weightScale*xSecWeights[ip]);
-    maxWeights[heprup.LPRUP[ip]] = heprup.XMAXUP[ip];
+    // The sign of XMAXUP has no meaning: for IDWTUP = -1 the Les Houches
+    // accord compares |XWGTUP| with |XMAXUP|, so a negative maximum must
+    // not flip the sign of the events.
+    double maxw = abs(heprup.XMAXUP[ip]);
+    sumx = max(maxw*xSecWeights[ip], sumx);
+    statmap[heprup.LPRUP[ip]] = XSecStat(maxw*weightScale*xSecWeights[ip]);
+    maxWeights[heprup.LPRUP[ip]] = maxw;
   }
   stats.maxXSec(sumx*weightScale);
   maxFactor = 1.0;

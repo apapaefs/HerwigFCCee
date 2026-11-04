@@ -18,16 +18,30 @@ declared in their init block, and it matches the processes in the events to
 the init block by process number rather than by order. Processes that are not
 declared are added with a warning. The reader used to read past the end of its
 per-process arrays for such files, which could give NaN cross sections.
-Except for IDWTUP = +/-1, all processes of a file now share one maximum
-weight, so processes whose weights differ keep their relative weights. For
-IDWTUP = +/-4 the cross section of a process is its share of the summed
-weights, so files with several processes are no longer normalised to about
-NPRUP times their cross section. IDWTUP = +/-2 files are normalised to the
-cross sections declared in their init block. Files whose normalisation the
-init block and the scanned events do not determine are rejected: IDWTUP =
-+/-2 or +/-3 files with undeclared processes or without declared cross
-sections, +/-2 processes whose weights add up to zero or to the wrong sign
-or that a partial scan (MaxScan) missed, and +/-3 files whose declared cross
+All processes of a file now share one maximum weight, so processes whose
+weights differ keep their relative weights. For IDWTUP = +/-4 the cross
+section of a process is its share of the summed weights, so files with
+several processes are no longer normalised to about NPRUP times their cross
+section. IDWTUP = +/-2 files are normalised to the cross sections declared
+in their init block. For IDWTUP = +/-1, as in the Les Houches accord, the
+cross section of a process is the mean weight of its own events, so files
+with several processes are scanned too, and their cross section is the sum
+of these means. A partial scan (MaxScan) estimates the shares of the
+processes from the scanned events, unless a cache file holds the whole file.
+The reader used to take the largest XMAXUP times the mean ratio of each
+weight to the XMAXUP of its process, which is right only when all XMAXUP are
+equal. Files with one process are still not scanned, and a negative XMAXUP
+no longer flips the sign of their events. MadGraphReader sets IDWTUP = 1 for
+MadEvent files, whose processes appear in proportion to their cross sections
+with equal event weights, so it has them normalised as one sample, as for
+IDWTUP = +/-4. It scales their weights by the number of events in the
+header, or else by the number scanned, now in every initialization and
+without dividing by NPRUP. A MadEvent file with one process needs the number
+in its header. Files whose normalisation the init block and the scanned
+events do not determine are rejected: IDWTUP = +/-2 or +/-3 files with
+undeclared processes or without declared cross sections, +/-1 and +/-2
+processes that a partial scan (MaxScan) missed, +/-2 processes whose weights
+add up to zero or to the wrong sign, and +/-3 files whose declared cross
 sections or event weights add up to zero.
 
 The event cache of LesHouchesReader (CacheFileName) now works. cacheFile()
