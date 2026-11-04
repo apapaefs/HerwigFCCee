@@ -27,7 +27,7 @@ in their init block. For IDWTUP = +/-1, as in the Les Houches accord, the
 cross section of a process is the mean weight of its own events, so files
 with several processes are scanned too, and their cross section is the sum
 of these means. A partial scan (MaxScan) estimates the shares of the
-processes from the scanned events, unless a cache file holds the whole file.
+processes from the scanned events, with a warning.
 The reader used to take the largest XMAXUP times the mean ratio of each
 weight to the XMAXUP of its process, which is right only when all XMAXUP are
 equal. Files with one process are still not scanned, and a negative XMAXUP
@@ -37,21 +37,30 @@ with equal event weights, so it has them normalised as one sample, as for
 IDWTUP = +/-4. It scales their weights by the number of events in the
 header, or else by the number scanned, now in every initialization and
 without dividing by NPRUP. A MadEvent file with one process needs the number
-in its header. Files whose normalisation the init block and the scanned
-events do not determine are rejected: IDWTUP = +/-2 or +/-3 files with
-undeclared processes or without declared cross sections, +/-1 and +/-2
-processes that a partial scan (MaxScan) missed, +/-2 processes whose weights
-add up to zero or to the wrong sign, and +/-3 files whose declared cross
-sections or event weights add up to zero.
+in its header, and so does a partial scan without a cache file. Files whose
+normalisation the init block and the scanned events do not determine are
+rejected: IDWTUP = +/-2 or +/-3 files with undeclared processes or without
+declared cross sections, +/-1 and +/-2 processes that a partial scan
+(MaxScan) missed, +/-2 processes whose weights add up to zero or to the
+wrong sign, and +/-3 files without scanned events (MaxScan 0) or whose
+declared cross sections or event weights add up to zero. An event of a
+process that the init block does not declare and the scan did not find,
+which the reader used to give weight zero, stops the run. The new virtual
+function processesInProportion() is declared last, so the other virtual
+functions keep their places, but classes derived from LesHouchesReader must
+still be rebuilt.
 
 The event cache of LesHouchesReader (CacheFileName) now works. cacheFile()
 returned a copy of the file handle, so the cache was never opened and the
 events were read from the event file, and the cache records could not hold
-the optional weights. The scan now writes every event that passes the cuts
-to the cache, including those after the first MaxScan, and the fraction of
-the events kept scales the cross section. The run generates the events from
-the cache. The initialization of each run rewrites the cache, so runs at the
-same time need different cache files.
+the optional weights. With a cache file the scan now reads and scans every
+event, whatever MaxScan says, and writes those that pass the cuts to the
+cache; the fraction of the events kept scales the cross section. The run
+generates the events from the cache. The initialization of each run
+rewrites the cache, so runs at the same time need different cache files. A
+truncated cache file is an error. CFile::read() and CFile::write() count
+bytes for gzip files but items for plain ones, and the new CFile::type()
+tells the reader which.
 
 DecayHandler also provides an optional laboratory decay cylinder. The built-in
 GaussianVertexDistribution can smear the interaction point through

@@ -105,6 +105,13 @@ public:
    */
   size_t write(const void *ptr, size_t size, size_t nmemb = 1);
 
+  /**
+   * The type of the file. read() and write() return the number of bytes
+   * transferred for gzip and bzip2 files, but the number of items for
+   * plain files and pipes.
+   */
+  FileType type() const { return fileType; }
+
 private:
 
   /**

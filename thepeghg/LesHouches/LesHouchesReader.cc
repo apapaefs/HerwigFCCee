@@ -297,14 +297,24 @@ long LesHouchesReader::scan() {
 
     HoldFlag<> isScanning(scanning);
 
+    // With a cache file every event is read into the cache, and every
+    // event read is scanned, whatever MaxScan says. Otherwise MaxScan
+    // limits the scan. Readers that produce their events on the fly need
+    // not end, so they stop after MaxScan events and cache only those.
+    bool whole = cacheFile() && !active();
+    // Whether the scan reached the end of the file.
+    bool atend = false;
     double oldsum = 0.0;
     vector<int> lprup;
     vector<double> newmax;
     vector<long> oldeve;
     vector<double> sumlprup;
     vector<double> sumsqlprup;
-    vector<long> nscanned;
-    for ( long i = 0; ( maxScan() < 0 || i < maxScan() ) && readEvent(); ++i ) {
+    for ( long i = 0; whole || maxScan() < 0 || i < maxScan(); ++i ) {
+      if ( !readEvent() ) {
+        atend = true;
+        break;
+      }
       if ( !checkPartonBin() ) Throw<LesHouchesInitError>()
         << "Found event in LesHouchesReader '" << name()
         << "' which cannot be handeled by the assigned PartonExtractor '"
@@ -318,7 +328,6 @@ long LesHouchesReader::scan() {
         oldeve.push_back(0);
         sumlprup.push_back(0.);
         sumsqlprup.push_back(0.);
-        nscanned.push_back(0);
       } else {
         id = idit - lprup.begin();
       }
@@ -327,7 +336,6 @@ long LesHouchesReader::scan() {
       oldsum += hepeup.XWGTUP;
       sumlprup[id] += hepeup.XWGTUP;
       sumsqlprup[id] += sqr(hepeup.XWGTUP);
-      ++nscanned[id];
       if ( cacheFile() ) {
         if ( eventWeight() == 0.0 ) {
           ++cuteve;
@@ -338,29 +346,9 @@ long LesHouchesReader::scan() {
       newmax[id] = max(newmax[id], abs(eventWeight()));
       if ( eventWeight() < 0.0 ) negw = true;
     } //end of scanning events
-    if ( maxScan() < 0 || neve > NEvents() ) NEvents(neve - cuteve);
-
-    // The events are generated from the cache file, so the events after
-    // the first MaxScan are cached as well. They count for the fraction
-    // of the events that is kept and, for |IDWTUP| = 1, for the shares of
-    // the processes, but they are not scanned. Readers that produce events
-    // on the fly need not end, so they cache only the scanned events.
-    long nread = neve;
-    long ncached = neve - cuteve;
-    if ( cacheFile() && maxScan() >= 0 && !active() ) {
-      while ( readEvent() ) {
-        ++nread;
-        vector<int>::iterator idit =
-          find(lprup.begin(), lprup.end(), hepeup.IDPRUP);
-        int id = idit - lprup.begin();
-        bool scanned = idit != lprup.end();
-        if ( scanned ) ++oldeve[id];
-        if ( eventWeight() == 0.0 ) continue;
-        cacheEvent();
-        ++ncached;
-      }
-      NEvents(ncached);
-    }
+    // The events are generated from the cache file, which holds those that
+    // passed the cuts.
+    if ( whole || maxScan() < 0 || neve > NEvents() ) NEvents(neve - cuteve);
 
     // Find where each process seen in the events is declared in the init
     // block. The two orders need not agree, and declared processes may be
@@ -402,7 +390,7 @@ long LesHouchesReader::scan() {
     }
     // The fraction of the events read that the cache file keeps. Without a
     // cache file it is one, and the run rejects the cut events instead.
-    double kept = nread > 0 ? double(ncached)/double(nread) : 1.0;
+    double kept = neve > 0 ? double(neve - cuteve)/double(neve) : 1.0;
     xSecWeights.assign(heprup.NPRUP, 1.0);
     // The events are read in the order of the file, so all processes share
     // one maximum weight, which also covers the declared processes that the
@@ -411,8 +399,9 @@ long LesHouchesReader::scan() {
     // add up to the mean weight of its own events, which is its cross
     // section in the Les Houches accord, and for |IDWTUP| = 2 so that they
     // add up to its declared cross section. Otherwise, and in one sample,
-    // they are not rescaled.
-    bool partial = maxScan() >= 0 && neve >= maxScan();
+    // they are not rescaled. A scan that stopped after MaxScan events
+    // without reaching the end of the file is partial.
+    bool partial = !atend;
     bool given = false;
     for ( int ip = 0; ip < heprup.NPRUP; ++ip )
       if ( heprup.XSECUP[ip] != 0.0 ) given = true;
@@ -429,7 +418,7 @@ long LesHouchesReader::scan() {
         double xsec = heprup.XSECUP[ih];
         seen[ih] = true;
         if ( wtup == 1 )
-          scale[id] = double(nread)/double(oldeve[id]);
+          scale[id] = double(neve)/double(oldeve[id]);
         else if ( xsec == 0.0 ) {
           scale[id] = 0.0;
           Throw<LesHouchesInitError>()
@@ -463,35 +452,31 @@ long LesHouchesReader::scan() {
           << heprup.LPRUP[ip] << ", so its cross section is left out."
           << Exception::warning;
       }
-      // With a cache file the events after the first MaxScan are read as
-      // well. Those of processes that the scan did not see have neither a
-      // share nor a scanned weight sum.
-      long counted = 0;
-      for ( int id = 0, N = lprup.size(); id < N; ++id ) counted += oldeve[id];
-      if ( counted < nread )
+      // A partial scan estimates the shares, or the mean weights, of the
+      // processes from the scanned events.
+      if ( partial && ( wtup == 2 || lprup.size() > 1 ) )
         Throw<LesHouchesInitError>()
           << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
-          << ", but " << nread - counted << " events after the first " << maxScan()
-          << " belong to processes that the scan did not see, so their events "
-          << "cannot be normalised. Scan the whole file with MaxScan -1."
-          << Exception::runerror;
+          << ", but it scanned only the first " << neve << " events, so the "
+          << "cross sections of its processes are estimated from them. Scan the "
+          << "whole file with MaxScan -1, or use a cache file, to normalise them "
+          << "exactly." << Exception::warning;
     }
     double maxw = 0.0;
     for ( int id = 0, N = lprup.size(); id < N; ++id )
       maxw = max(maxw, scale[id]*newmax[id]);
-    // If no events were scanned, the largest declared maximum is shared.
-    if ( neve == 0 )
+    // If the scan found no weights, because it read no events or the cuts
+    // removed all that it read, the largest declared maximum is shared.
+    if ( maxw == 0.0 )
       for ( int ip = 0; ip < heprup.NPRUP; ++ip )
         maxw = max(maxw, abs(heprup.XMAXUP[ip]));
-    if ( maxw > 0.0 ) {
-      for ( int ip = 0; ip < heprup.NPRUP; ++ip ) {
-        heprup.XMAXUP[ip] = maxw;
-        xSecWeights[ip] = kept;
-      }
-      for ( int id = 0, N = lprup.size(); id < N; ++id ) {
-        heprup.XMAXUP[idh[id]] = scale[id] > 0.0 ? maxw/scale[id] : 0.0;
-        xSecWeights[idh[id]] = scale[id]*kept;
-      }
+    for ( int ip = 0; ip < heprup.NPRUP; ++ip ) {
+      heprup.XMAXUP[ip] = maxw;
+      xSecWeights[ip] = kept;
+    }
+    for ( int id = 0, N = lprup.size(); id < N; ++id ) {
+      heprup.XMAXUP[idh[id]] = scale[id] > 0.0 ? maxw/scale[id] : 0.0;
+      xSecWeights[idh[id]] = scale[id]*kept;
     }
     if ( wtup != 2 && wtup != 3 ) {
       // For |IDWTUP| = 1 the cross section of a process is the mean weight
@@ -502,7 +487,7 @@ long LesHouchesReader::scan() {
       // init-block values.
       for ( int id = 0, N = lprup.size(); id < N; ++id ) {
         int ih = idh[id];
-        double n = wtup == 1 ? nscanned[id] : neve;
+        double n = wtup == 1 ? oldeve[id] : neve;
         heprup.XSECUP[ih] = sumlprup[id]/n;
         heprup.XERRUP[ih] = (sumsqlprup[id]/n - sqr(sumlprup[id]/n))/n;
         if ( heprup.XERRUP[ih] < 0.0 ) {
@@ -520,15 +505,21 @@ long LesHouchesReader::scan() {
     }
     // For |IDWTUP| = 3 the declared total cross section is divided by the
     // mean event weight; for 0, 2 and 4 the weights, rescaled for
-    // |IDWTUP| = 2, are in pb. Without scanned events, IDWTUP = +3 events
-    // all have the weight XMAXUP. For |IDWTUP| = 1, one sample or not,
+    // |IDWTUP| = 2, are in pb. Without scanned events, the weight of
+    // |IDWTUP| = 3 events is unknown. For |IDWTUP| = 1, one sample or not,
     // weightScale stays as the reader set it, which is 1 pb unless a
     // sub-class such as MadGraphReader changed it.
     if ( abs(heprup.IDWTUP) != 1 ) weightScale = 1.0*picobarn;
     if ( wtup == 3 ) {
       double sumxsec = 0.0;
       for ( int ip = 0; ip < heprup.NPRUP; ++ip ) sumxsec += heprup.XSECUP[ip];
-      double meanw = neve > 0 ? oldsum/neve : ( heprup.IDWTUP > 0 ? maxw : 0.0 );
+      if ( neve == 0 )
+        Throw<LesHouchesInitError>()
+          << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
+          << ", but it scanned no events, so the weight of its events is "
+          << "unknown and they cannot be normalised. Let it scan events, with "
+          << "MaxScan -1 or a cache file." << Exception::runerror;
+      double meanw = oldsum/neve;
       if ( sumxsec == 0.0 || meanw == 0.0 )
         Throw<LesHouchesInitError>()
           << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
@@ -734,7 +725,15 @@ double LesHouchesReader::getEvent() {
   }
   ++position;
 
-  double max = maxWeights[hepeup.IDPRUP]*maxFactor;
+  // An event of a process that the init block does not declare and the
+  // scan did not find cannot be normalised.
+  map<int,double>::const_iterator mw = maxWeights.find(hepeup.IDPRUP);
+  if ( mw == maxWeights.end() ) Throw<LesHouchesInconsistencyError>()
+    << "The LesHouchesReader '" << name() << "' read an event of process "
+    << hepeup.IDPRUP << ", which its init block does not declare and its "
+    << "scan did not find, so the event cannot be normalised. With a cache "
+    << "file the reader scans the whole file." << Exception::runerror;
+  double max = mw->second*maxFactor;
   // normalize all the weights to the max weight
   for(map<string,double>::iterator it=optionalWeights.begin();
       it!=optionalWeights.end();++it) {
@@ -1308,10 +1307,18 @@ void LesHouchesReader::closeCacheFile() {
 }
 
 namespace {
-  // CFile::read and CFile::write count the items transferred for plain
-  // files and pipes, but the bytes for gzip files. True if the whole item
-  // of the given number of bytes was transferred.
-  bool transferred(size_t n, size_t bytes) { return n == 1 || n == bytes; }
+  // CFile::read and CFile::write count the bytes transferred for gzip and
+  // bzip2 files, but the items for plain files and pipes. These transfer
+  // the given number of bytes and return the number of bytes transferred.
+  bool countsBytes(const CFile & file) {
+    return file.type() == CFile::gzip || file.type() == CFile::bzip2;
+  }
+  size_t readBytes(CFile & file, void * ptr, size_t bytes) {
+    return countsBytes(file)? file.read(ptr, bytes): file.read(ptr, 1, bytes);
+  }
+  size_t writeBytes(CFile & file, const void * ptr, size_t bytes) {
+    return countsBytes(file)? file.write(ptr, bytes): file.write(ptr, 1, bytes);
+  }
 }
 
 void LesHouchesReader::cacheEvent() const {
@@ -1352,10 +1359,10 @@ void LesHouchesReader::cacheEvent() const {
     pos = mwrite(pos, *it->first.data(), it->first.size());
     pos = mwrite(pos, it->second);
   }
-  if ( !transferred(cacheFile().write(&hepeup.NUP, sizeof(hepeup.NUP)),
-                    sizeof(hepeup.NUP)) ||
-       !transferred(cacheFile().write(&size, sizeof(size)), sizeof(size)) ||
-       !transferred(cacheFile().write(&buff[0], size), size) )
+  if ( writeBytes(cacheFile(), &hepeup.NUP, sizeof(hepeup.NUP)) !=
+       sizeof(hepeup.NUP) ||
+       writeBytes(cacheFile(), &size, sizeof(size)) != sizeof(size) ||
+       writeBytes(cacheFile(), &buff[0], size) != size )
     Throw<LesHouchesInitError>()
       << "LesHouchesReader '" << name() << "' could not write to the cache "
       << "file '" << cacheFileName() << "'." << Exception::runerror;
@@ -1365,16 +1372,16 @@ bool LesHouchesReader::uncacheEvent() {
   reset();
   static vector<char> buff;
   // The file may end only before the NUP of an event.
-  size_t n = cacheFile().read(&hepeup.NUP, sizeof(hepeup.NUP));
+  size_t n = readBytes(cacheFile(), &hepeup.NUP, sizeof(hepeup.NUP));
   if ( n == 0 ) return false;
   size_t size = 0;
-  bool ok = transferred(n, sizeof(hepeup.NUP)) && hepeup.NUP > 0 &&
-    transferred(cacheFile().read(&size, sizeof(size)), sizeof(size)) &&
+  bool ok = n == sizeof(hepeup.NUP) && hepeup.NUP > 0 &&
+    readBytes(cacheFile(), &size, sizeof(size)) == sizeof(size) &&
     size >= eventSize(hepeup.NUP) + sizeof(LHEeventnum) +
             sizeof(optionalnpLO) + sizeof(optionalnpNLO) + sizeof(size_t);
   if ( ok ) {
     buff.resize(size);
-    ok = transferred(cacheFile().read(&buff[0], size), size);
+    ok = readBytes(cacheFile(), &buff[0], size) == size;
   }
   if ( !ok ) Throw<LesHouchesInconsistencyError>()
     << "The cache file '" << cacheFileName() << "' of LesHouchesReader '"
@@ -1553,8 +1560,9 @@ void LesHouchesReader::Init() {
   static Parameter<LesHouchesReader,long> interfaceMaxScan
     ("MaxScan",
      "The maximum number of events to scan to obtain information about "
-     "processes and cross section in the intialization. With a cache file, "
-     "the events after these are cached too.",
+     "processes and cross section in the intialization. With a cache file "
+     "every event is cached and scanned, so the limit applies only to readers "
+     "that produce their events on the fly.",
      &LesHouchesReader::theMaxScan, -1, 0, 0,
      true, false, false);
 
@@ -1563,7 +1571,8 @@ void LesHouchesReader::Init() {
      "Name of file used to cache the events from the reader in a fast-readable "
      "form. If empty, no cache file will be generated. The events are written "
      "to the file when the reader is initialized, and the run reads them from "
-     "it. Events that fail the cuts are left out of the file, and the cross "
+     "it. Every event is then scanned, whatever MaxScan says. Events that "
+     "fail the cuts are left out of the file, and the cross "
      "section is corrected for them. The initialization of each run writes the "
      "file again, so runs at the same time need different cache files.",
      &LesHouchesReader::theCacheFileName, "",

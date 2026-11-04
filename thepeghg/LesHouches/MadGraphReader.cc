@@ -224,8 +224,17 @@ long MadGraphReader::scan() {
   // MadEvent has gives wrong values for XMAXUP and XWGTUP, they
   // need to be multiplied by the number of events to be LHEF
   // compliant. The number is that of the header, which open() reads
-  // in every initialization, or else that of the scan. The scan is
-  // repeated in the run initialization, so the scale is set anew.
+  // in every initialization, or else that of the events scanned, which
+  // are all the events of the file, cut or not, with a cache file or
+  // without MaxScan. The scan is repeated in the run initialization, so
+  // the scale is set anew.
+  if ( neve <= 0 && !cacheFile() && maxScan() >= 0 && nscan >= maxScan() )
+    Throw<LesHouchesInitError>()
+      << "The MadGraphReader '" << name() << "' found no number of events "
+      << "in the header of the file '" << filename() << "' and scanned only "
+      << "the first " << nscan << " events, so it cannot normalise them. Scan "
+      << "the whole file with MaxScan -1, or use a cache file."
+      << Exception::runerror;
   weightScale = ( neve > 0 ? neve : nscan )*picobarn;
   return nscan;
 }
