@@ -28,7 +28,8 @@ cross section of a process is the mean weight of its own events, so files
 with several processes are scanned too, and their cross section is the sum
 of these means. A partial scan (MaxScan) estimates the shares of the
 processes from the scanned events, with a warning, and so it does for the
-mean weight of IDWTUP = +/-3 files with negative weights.
+mean weight of IDWTUP = -3 files, and of +3 files whose scanned events
+have different weights.
 The reader used to take the largest XMAXUP times the mean ratio of each
 weight to the XMAXUP of its process, which is right only when all XMAXUP are
 equal. Files with one process are still not scanned, and a negative XMAXUP

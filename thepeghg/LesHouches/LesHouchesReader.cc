@@ -305,6 +305,10 @@ long LesHouchesReader::scan() {
     // Whether the scan reached the end of the file.
     bool atend = false;
     double oldsum = 0.0;
+    // The weight of the first scanned event, and whether those of the
+    // others differ from it, before any cuts.
+    double firstw = 0.0;
+    bool unequal = false;
     vector<int> lprup;
     vector<double> newmax;
     vector<long> oldeve;
@@ -334,6 +338,9 @@ long LesHouchesReader::scan() {
       ++neve;
       ++oldeve[id];
       oldsum += hepeup.XWGTUP;
+      if ( neve == 1 ) firstw = hepeup.XWGTUP;
+      else if ( abs(hepeup.XWGTUP - firstw) >
+                1.0e-9*max(abs(hepeup.XWGTUP), abs(firstw)) ) unequal = true;
       sumlprup[id] += hepeup.XWGTUP;
       sumsqlprup[id] += sqr(hepeup.XWGTUP);
       if ( cacheFile() ) {
@@ -526,9 +533,10 @@ long LesHouchesReader::scan() {
           << ", but its declared cross sections or its event weights add up "
           << "to zero, so its events cannot be normalised." << Exception::runerror;
       // A partial scan estimates the mean weight from the scanned events.
-      // It is exact only if all events have the same weight, which
-      // negative weights rule out.
-      if ( partial && ( heprup.IDWTUP < 0 || negw ) )
+      // It is exact only if all events have the same weight, which the
+      // negative weights of IDWTUP = -3 files rule out, and so do weights
+      // of the scanned events that differ, before any cuts.
+      if ( partial && ( heprup.IDWTUP < 0 || unequal ) )
         Throw<LesHouchesInitError>()
           << "The LesHouchesReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
           << ", but it scanned only the first " << neve << " events, so the "
