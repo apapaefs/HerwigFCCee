@@ -522,6 +522,16 @@ long FxFxReader::scan() {
           << "The FxFxReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
           << ", but its declared cross sections or its event weights add up "
           << "to zero, so its events cannot be normalised." << Exception::runerror;
+      // A partial scan estimates the mean weight from the scanned events.
+      // It is exact only if all events have the same weight, which
+      // negative weights rule out.
+      if ( partial && ( heprup.IDWTUP < 0 || negw ) )
+        Throw<FxFxInitError>()
+          << "The FxFxReader '" << name() << "' has IDWTUP = " << heprup.IDWTUP
+          << ", but it scanned only the first " << neve << " events, so the "
+          << "mean weight that normalises its events is estimated from them. "
+          << "Scan the whole file with MaxScan -1, or use a cache file, to "
+          << "normalise them exactly." << Exception::warning;
       weightScale = picobarn*sumxsec/meanw;
     }
   }
